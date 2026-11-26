@@ -42,8 +42,13 @@ try:
     # 导入 CONFIG 用于处理关联表
     from data_construction.src.config import CONFIG
 except ImportError as e:
-    st.error(f"Error importing generation functions: {e}")
-    st.error(f"Expected path: {BASELINE_DIR}")
+    # data_construction/src/baseline/ is not part of this release.
+    st.error(
+        "This app needs the one-pass, row-by-row and column-by-column generation strategies "
+        "from `data_construction/src/baseline/`, which are not included in this repository. "
+        "To generate documents, use the DB2Doc pipeline described in `data_construction/README.md`."
+    )
+    st.caption(f"Import error: {e}")
     st.stop()
 
 # -----------------------------------------------------------------------------

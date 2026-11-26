@@ -24,7 +24,8 @@ from dotenv import dotenv_values
 from utils import _clean_response
 from utils import exit_code
 env_path = Path(__file__).parent.parent/ "llm" / ".env"
-config = dotenv_values(env_path)
+# Environment variables take precedence over llm/.env (see llm/.env.example).
+config = {**dotenv_values(env_path), **os.environ}
 DEFAULT_API_URL = config.get("GPT_URL_PRO")
 DEFAULT_API_KEY = config.get("GPT_KEY_PRO")
 

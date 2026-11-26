@@ -1,5 +1,6 @@
 """The evaluation scripts work from a fresh clone, with no API keys set (#3)."""
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -51,3 +52,25 @@ def test_evaluator_exits_nonzero_when_it_finds_no_cases(tmp_path):
     r = subprocess.run(script + ["--evaluate-only", "--dataset-dir", str(tmp_path)],
                        cwd=ROOT / "evaluation", env=CLEAN_ENV, capture_output=True, text=True, timeout=120)
     assert r.returncode != 0
+
+
+def test_credentials_are_read_from_the_environment():
+    r = run_python("import test_dataset_evaluate as T; print(T.api_key)", env={**CLEAN_ENV, "GPT_KEY_PRO": "from-env"})
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip().splitlines()[-1] == "from-env"
+
+
+def test_credentials_file_is_not_tracked():
+    r = subprocess.run(["git", "ls-files", "llm/.env"], cwd=ROOT, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.strip() == ""
+
+
+def test_env_example_lists_every_variable_the_code_reads():
+    read = set()
+    for path in [*(ROOT / "evaluation").glob("*.py"), *(ROOT / "llm").glob("*.py")]:
+        code = [line for line in path.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("#")]
+        read |= set(re.findall(r'config\.get\("([A-Z_]+)"\)', "\n".join(code)))
+    example = (ROOT / "llm" / ".env.example").read_text(encoding="utf-8")
+    listed = set(re.findall(r"^([A-Z_]+)=", example, re.M))
+    assert read and read <= listed, sorted(read - listed)

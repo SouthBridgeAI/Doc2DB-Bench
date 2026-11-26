@@ -142,9 +142,10 @@ Doc2DB-Bench/
     ├── llm_evaluate_cascade.py
     ├── docetl_evaluate.py
     ├── langchain_evaluate.py
-    ├── langextract_evaluate.py
-    └── docqa/
+    └── langextract_evaluate.py
 ```
+
+`app.py` is a Streamlit interface for alternative document-generation strategies whose code (`data_construction/src/baseline/`) is not included in this release, so it stops with a message at start-up.
 
 ## 🧩What Each Module Does
 
@@ -165,7 +166,6 @@ See [`data_construction/README.md`](./data_construction/README.md) for the detai
 - run extraction baselines
 - score outputs against ground-truth database tables
 - produce fine-grained analysis notebooks
-- run DocQA-style evaluation for generated documents
 
 See [`evaluation/README.md`](./evaluation/README.md) for baseline usage, metric definitions, output files, and notebook-based analysis.
 

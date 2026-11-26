@@ -7,7 +7,8 @@ from openai import OpenAI
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(current_dir, ".env")
-config = dotenv_values(env_path)
+# Environment variables take precedence over llm/.env (see llm/.env.example).
+config = {**dotenv_values(env_path), **os.environ}
 
 
 def _build_messages(text: str, system_prompt: Optional[str] = None) -> List[Dict[str, str]]:
@@ -35,8 +36,8 @@ def get_answer(
         pip install openai
 
     .env:
-        DASHSCOPE_URL=your_base_url
-        DASHSCOPE_API=your_api_key
+        GPT_URL=your_base_url
+        GPT_KEY=your_api_key
     """
     base_url = config.get("GPT_URL")
     api_key = config.get("GPT_KEY")

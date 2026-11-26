@@ -33,7 +33,8 @@ from utils import (
     exit_code,
 )
 env_path = Path(__file__).parent.parent/ "llm" / ".env"
-config = dotenv_values(env_path)
+# Environment variables take precedence over llm/.env (see llm/.env.example).
+config = {**dotenv_values(env_path), **os.environ}
 api_url = config.get("GPT_URL_PRO")
 api_key = config.get("GPT_KEY_PRO")
 
