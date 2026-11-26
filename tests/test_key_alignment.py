@@ -46,6 +46,13 @@ def renumber(gt, schema, keys):
     return gt
 
 
+def scores(evaluator, generated, gt, schema, info):
+    """(cell F1, entity F1, relation F1), the three scores an evaluation file reports."""
+    cell = evaluator.calculate_cell_metrics(generated, gt, schema, case_info=info)
+    structural = evaluator.calculate_structural_metrics(generated, gt, schema, case_info=info)
+    return cell["cell_f1"], structural["entity_f1"], structural["relation_f1"]
+
+
 def load(evaluator, case):
     info = case_info(evaluator, case)
     schema = json.loads(Path(info["schema_file"]).read_text(encoding="utf-8"))
@@ -57,8 +64,7 @@ def test_renumbered_ground_truth_scores_100_smoke(evaluator):
     info, schema, gt = load(evaluator, "medical/case1")
     renumbered = renumber(gt, schema, surrogate_keys(evaluator, schema, info))
     assert renumbered != gt
-    m = evaluator.calculate_cell_metrics(renumbered, gt, schema, case_info=info)
-    assert m["cell_f1"] == pytest.approx(100.0)
+    assert scores(evaluator, renumbered, gt, schema, info) == pytest.approx((100.0, 100.0, 100.0))
 
 
 @pytest.mark.slow
@@ -67,8 +73,7 @@ def test_renumbered_ground_truth_scores_100(evaluator, case):
     evaluator.dataset_dir = ROOT / "dataset"
     info, schema, gt = load(evaluator, case)
     renumbered = renumber(gt, schema, surrogate_keys(evaluator, schema, info))
-    m = evaluator.calculate_cell_metrics(renumbered, gt, schema, case_info=info)
-    assert m["cell_f1"] == pytest.approx(100.0)
+    assert scores(evaluator, renumbered, gt, schema, info) == pytest.approx((100.0, 100.0, 100.0))
 
 
 def test_literal_keys_scores_renumbering_as_wrong(evaluator):

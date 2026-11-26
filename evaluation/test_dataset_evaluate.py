@@ -1899,6 +1899,10 @@ class Doc2DBEvaluator:
                 table_types = self.get_table_types_from_schema(schema)
                 # 提取实体表的主键字段
                 primary_keys_by_table = self._get_primary_key_fields_from_schema(schema)
+                # Same identifier rule as calculate_cell_metrics, so entity and relation F1 agree with cell F1.
+                if self.align_keys:
+                    generated = self.align_surrogate_keys(
+                        generated, expected, self._normalize_schema_for_metrics(schema), case_info)
             entity_pk_allowed_by_table = self._get_entity_pk_allowed_from_meta(case_info)
             
             entity_stats = {'expected_cells': 0, 'generated_cells': 0, 'correct_cells': 0}
