@@ -1,5 +1,5 @@
 {
-    "database_name": "thrombosis_prediction2",
+    "database_name": "thrombosis_prediction",
     "if_primary_allowed": {
         "Examination": false,
         "Laboratory": false,

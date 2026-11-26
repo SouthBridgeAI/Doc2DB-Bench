@@ -91,13 +91,24 @@ def test_ground_truth_foreign_keys_point_to_existing_rows(evaluator, case):
     assert dangling == {}
 
 
-@pytest.mark.xfail(strict=True, reason="#19: medical/case2 and medical/case3 are identical (report 018)")
+# Cases that deliberately share one database, rendered in different document styles (README, #19 report 018).
+SAME_DATABASE_RENDERED_TWICE = [["medical/case2", "medical/case3"]]
+
+
 def test_no_two_cases_share_the_same_ground_truth(evaluator):
     seen = {}
     for case in CASES:
         digest = hashlib.sha256(json.dumps(ground_truth(evaluator, case), sort_keys=True).encode()).hexdigest()
         seen.setdefault(digest, []).append(case)
-    assert [cases for cases in seen.values() if len(cases) > 1] == []
+    assert [cases for cases in seen.values() if len(cases) > 1] == SAME_DATABASE_RENDERED_TWICE
+
+
+@pytest.mark.parametrize("cases", SAME_DATABASE_RENDERED_TWICE)
+def test_cases_sharing_a_database_say_so_and_differ_in_their_documents(cases):
+    metas = [json.loads((ROOT / "dataset" / c / "meta.json").read_text(encoding="utf-8")) for c in cases]
+    assert len({m["database_name"] for m in metas}) == 1
+    docs = [{p.name: p.read_text(encoding="utf-8") for p in (ROOT / "dataset" / c / "docs").glob("*.md")} for c in cases]
+    assert all(docs[0][name] != other[name] for other in docs[1:] for name in docs[0])
 
 
 @pytest.mark.parametrize("case", cases_for("keys_and_not_null"))
