@@ -1,0 +1,14 @@
+[
+{"truck_id": 1, "make": "Peterbilt", "model_year": 2005},
+{"truck_id": 2, "make": "Mack", "model_year": 2006},
+{"truck_id": 3, "make": "Peterbilt", "model_year": 2007},
+{"truck_id": 4, "make": "Kenworth", "model_year": 2007},
+{"truck_id": 5, "make": "Mack", "model_year": 2008},
+{"truck_id": 6, "make": "Peterbilt", "model_year": 2008},
+{"truck_id": 7, "make": "Kenworth", "model_year": 2008},
+{"truck_id": 8, "make": "Kenworth", "model_year": 2009},
+{"truck_id": 9, "make": "Mack", "model_year": 2009},
+{"truck_id": 10, "make": "Mack", "model_year": 2009},
+{"truck_id": 11, "make": "Peterbilt", "model_year": 2010},
+{"truck_id": 12, "make": "Mack", "model_year": 2010}
+]

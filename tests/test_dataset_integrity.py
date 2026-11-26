@@ -14,15 +14,8 @@ CASES = sorted(str(p.parent.relative_to(ROOT / "dataset"))
                for p in (ROOT / "dataset").glob("*/case*/schema.json"))
 
 KNOWN_FAILURES = {
-    "layout": {                                  # #19, layout
-        "finance/case7",
-        "transportation/case5",
-        "university/case1",
-    },
-    "table_names": {                             # #19, layout
-        "transportation/case5",
-        "university/case1",
-    },
+    "layout": set(),                             # #19, layout
+    "table_names": set(),                        # #19, layout
     "columns": {                                 # #19, report 002
         "others/case5",
     },
