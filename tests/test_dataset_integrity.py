@@ -19,7 +19,6 @@ KNOWN_FAILURES = {
     "columns": {                                 # #19, report 002
     },
     "foreign_keys": {                            # #19, report 008
-        "sports/case3",
     },
     "keys_and_not_null": set(),                  # #19, report 011
 }
