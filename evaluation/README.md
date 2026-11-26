@@ -153,6 +153,8 @@ python test_dataset_evaluate.py --model gpt-4o --evaluate-only
 python test_dataset_evaluate.py --model gpt-4o --document-mode multi --evaluate-only --run-name evaluation_001
 ```
 
+The LLM judge score (`llm_score`, judged by the pinned `gpt-4o-2024-08-06`) is computed by default; `--no-llm-eval` skips it and stores `llm_score` as `null`, as does a judge call that fails.
+
 Evaluate outputs from all methods:
 
 ```bash
