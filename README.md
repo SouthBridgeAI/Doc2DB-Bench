@@ -98,6 +98,8 @@ This pipeline is implemented in [`data_construction/`](./data_construction/), wh
 
 The paper evaluates a range of proprietary and open-source LLMs on Doc2DB-Bench.
 
+**Which protocol these numbers use.** The leaderboard is produced by [`evaluation/result.ipynb`](./evaluation/result.ipynb), which averages `pipeline-oracle` runs of the cascade baseline. In that mode, the model is shown the ground-truth entity tables (identifiers included) while it extracts the relationship tables. To evaluate your own system, use `pipeline` mode, which reads only the documents and the schema. Its scores are not directly comparable with this leaderboard. See [evaluation modes](./evaluation/README.md#evaluation-modes).
+
 ### Main findings
 
 - **GPT-5.4** achieves the best overall F1 and the best LLM-based consistency score reported in the paper.
