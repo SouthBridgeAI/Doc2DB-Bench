@@ -52,6 +52,12 @@ def test_null_cells_not_counted(evaluator):
     assert m["total_expected_cells"] == 2  # today: 3
 
 
+def test_whitespace_only_gt_value_counts_as_empty(evaluator):
+    m = evaluator.calculate_cell_metrics({"T": [{"id": 1, "k": None}]},
+                                         {"T": [{"id": 1, "k": " "}]})
+    assert m["cell_f1"] == 100.0          # was 50.0 (report 012)
+
+
 @known("baseline: Markdown table parser drops empty cells and shifts values left")
 def test_markdown_parser_keeps_empty_cells_in_place(cascade):
     response = "<TABLE BEGIN>\n| a | b | c |\n|---|---|---|\n| 1 |  | 3 |\n<TABLE END>"

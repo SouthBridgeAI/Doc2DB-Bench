@@ -532,7 +532,8 @@ class Doc2DBEvaluator:
     
     def get_value_type(self, value: Any) -> str:
         """判断值的类型"""
-        if value is None or value == "":
+        # A whitespace-only string carries no value, so it is empty like None and "".
+        if value is None or (isinstance(value, str) and value.strip() == ""):
             return "null"
         
         # bool is a subclass of int, so this must come before the numeric check.
