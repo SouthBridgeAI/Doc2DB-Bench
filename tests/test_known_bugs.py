@@ -1,4 +1,5 @@
 import pytest
+import test_dataset_evaluate
 
 # Replace each reason with the GitHub issue number once the issues are filed.
 def known(reason):
@@ -47,3 +48,20 @@ def test_markdown_parser_keeps_empty_cells_in_place(cascade):
     response = "<TABLE BEGIN>\n| a | b | c |\n|---|---|---|\n| 1 |  | 3 |\n<TABLE END>"
     rows = cascade.parse_llm_response(response, {"name": "T", "attributes": []})["T"]
     assert rows == [{"a": "1", "b": None, "c": "3"}]   # today: b="3", c=None
+
+
+def test_llm_judge_failure_is_missing_not_zero(evaluator, monkeypatch, tmp_path):   # 030
+    class FailingClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(*args, **kwargs):
+                    raise RuntimeError("judge unavailable")
+
+    monkeypatch.setattr(test_dataset_evaluate, "_client", FailingClient)
+    (tmp_path / "schema.json").write_text("[]")
+    result = evaluator.evaluate_with_llm(
+        {"T": []}, {"T": []},
+        {"db_name": "d", "case_name": "c", "schema_file": tmp_path / "schema.json"},
+    )
+    assert result["overall"] is None                                     # was 0.0
