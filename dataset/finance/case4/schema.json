@@ -129,7 +129,7 @@
         "name": "SalesPersonID",
         "type": "INTEGER",
         "constraints": {
-          "nullable": false,
+          "nullable": true,
           "foreign_key": {
             "table": "Employees",
             "column": "EmployeeID"
