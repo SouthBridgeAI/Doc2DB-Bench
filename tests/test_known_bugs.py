@@ -15,10 +15,17 @@ def test_keyword_fallback_rejects_different_codes(evaluator):
     assert not evaluator.compare_cell_values("M", "F")["match"]
 
 
-@known("scorer: column name differing only in case is counted twice")
 def test_column_name_case_not_double_counted(evaluator):
     m = evaluator.calculate_cell_metrics({"T": [{"name": "Ann"}]}, {"T": [{"Name": "Ann"}]})
-    assert m["cell_f1"] == 100.0          # today: 66.67
+    assert m["cell_f1"] == 100.0          # was 66.67 (report 024)
+
+
+def test_column_name_case_not_double_counted_in_entity_and_relation_scores(evaluator):
+    schema = [{"name": "T", "type": "entity", "fields": [{"name": "name", "constraints": {}}]},
+              {"name": "R", "type": "relation", "fields": [{"name": "note", "constraints": {}}]}]
+    m = evaluator.calculate_entity_relation_metrics(
+        {"T": [{"Name": "Ann"}], "R": [{"Note": "x"}]}, {"T": [{"name": "Ann"}], "R": [{"note": "x"}]}, schema)
+    assert (m["entity_f1"], m["relation_f1"]) == (100.0, 100.0)
 
 
 @known("scorer: dates and times compared as exact strings")
