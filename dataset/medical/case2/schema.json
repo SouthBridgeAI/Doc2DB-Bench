@@ -210,7 +210,7 @@
         "constraints": {
           "nullable": false
         },
-        "description": "Date of the laboratory tests (YYMMDD)"
+        "description": "Date of the laboratory tests (YYYY-MM-DD)"
       },
       {
         "name": "GOT",

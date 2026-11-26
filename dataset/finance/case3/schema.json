@@ -39,7 +39,7 @@
         "constraints": {
           "nullable": false
         },
-        "description": "the creation date of the account in the form YYMMDD"
+        "description": "the creation date of the account in the form YYYY-MM-DD"
       }
     ]
   },
