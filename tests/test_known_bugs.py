@@ -28,9 +28,18 @@ def test_column_name_case_not_double_counted_in_entity_and_relation_scores(evalu
     assert (m["entity_f1"], m["relation_f1"]) == (100.0, 100.0)
 
 
-@known("scorer: dates and times compared as exact strings")
 def test_time_with_seconds_matches(evaluator):
     assert evaluator.compare_cell_values("2008-04-24 10:00", "2008-04-24 10:00:00")["match"]
+
+
+@pytest.mark.parametrize("expected, generated, match", [
+    ("1981-8-1", "1981-08-01", True),
+    ("2008-04-24T10:00:00", "2008-04-24 10:00", True),
+    ("2008-04-24", "2008-04-25", False),
+    ("2008-04-24 10:00", "2008-04-24 10:01", False),
+])
+def test_dates_compared_at_ground_truth_precision(evaluator, expected, generated, match):
+    assert evaluator.compare_cell_values(expected, generated)["match"] is match
 
 
 @known("scorer: empty cells counted, contrary to the paper's non-empty definition")
