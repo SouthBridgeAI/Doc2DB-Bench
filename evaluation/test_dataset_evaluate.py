@@ -535,6 +535,10 @@ class Doc2DBEvaluator:
         if value is None or value == "":
             return "null"
         
+        # bool is a subclass of int, so this must come before the numeric check.
+        if isinstance(value, bool):
+            return "boolean"
+        
         if isinstance(value, (int, float)):
             return "numeric"
         
@@ -551,9 +555,6 @@ class Doc2DBEvaluator:
             
             if value.strip().lower() in ['true', 'false', 'yes', 'no', '是', '否']:
                 return "boolean"
-        
-        if isinstance(value, bool):
-            return "boolean"
         
         return "string"
     
@@ -1005,6 +1006,16 @@ class Doc2DBEvaluator:
         if result['expected_type'] == 'null' or result['generated_type'] == 'null':
             return result
         
+        if result['expected_type'] == 'boolean' or result['generated_type'] == 'boolean':
+            # true / "TRUE" / "yes" / 1 are one value, false / "FALSE" / "no" / 0 the other.
+            exp_bool, gen_bool = self._as_boolean(expected), self._as_boolean(generated)
+            if exp_bool is not None and gen_bool is not None:
+                if exp_bool == gen_bool:
+                    result['match'] = True
+                    result['match_type'] = 'boolean'
+                    result['similarity'] = 1.0
+                return result
+        
         if result['expected_type'] == 'numeric' or result['generated_type'] == 'numeric':
             exp_val, exp_decimals = self.normalize_numeric_value(expected)
             gen_val, gen_decimals = self.normalize_numeric_value(generated)
@@ -1079,17 +1090,19 @@ class Doc2DBEvaluator:
                 result['match_type'] = 'date_normalized'
                 result['similarity'] = 1.0
         
-        
-        elif result['expected_type'] == 'boolean' and result['generated_type'] == 'boolean':
-            exp_bool = str(expected).lower() in ['true', 'yes', '是', '1']
-            gen_bool = str(generated).lower() in ['true', 'yes', '是', '1']
-            
-            if exp_bool == gen_bool:
-                result['match'] = True
-                result['match_type'] = 'boolean'
-                result['similarity'] = 1.0
-        
         return result
+
+    @staticmethod
+    def _as_boolean(value: Any) -> Optional[bool]:
+        """The boolean a cell value stands for, or None if it is not one: bools, 0/1, true/false, yes/no, 是/否."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return {0: False, 1: True}.get(value)
+        if isinstance(value, str):
+            return {'true': True, 'yes': True, '是': True, '1': True,
+                    'false': False, 'no': False, '否': False, '0': False}.get(value.strip().lower())
+        return None
     
     def _find_best_matching_row(self, expected_row: dict, generated_rows: list, used_indices: set) -> tuple:
         """Find best matching row based on content similarity"""

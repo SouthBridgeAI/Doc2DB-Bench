@@ -5,9 +5,19 @@ def known(reason):
     return pytest.mark.xfail(strict=True, reason=reason)
 
 
-@known("scorer: JSON booleans never match boolean strings")
-def test_json_boolean_matches_boolean_string(evaluator):
-    assert evaluator.compare_cell_values("TRUE", True)["match"]
+@pytest.mark.parametrize("expected, generated, match", [
+    ("TRUE", True, True), ("FALSE", False, True), ("true", True, True),   # report 026
+    (1, True, True), (0, False, True), ("TRUE", "yes", True),             # 0/1 in BOOLEAN columns (medical/case1)
+    ("TRUE", False, False), (1, False, False), ("FALSE", "TRUE", False),
+    (2, True, False),                                                     # 2 is not a boolean
+])
+def test_booleans_match_across_spellings(evaluator, expected, generated, match):
+    assert evaluator.compare_cell_values(expected, generated)["match"] is match
+
+
+def test_numbers_are_not_read_as_booleans(evaluator):
+    assert evaluator.compare_cell_values(1, 1)["match"]
+    assert not evaluator.compare_cell_values(1, 0)["match"]
 
 
 @known("scorer: keyword fallback accepts wrong values")
