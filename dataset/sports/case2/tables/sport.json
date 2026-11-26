@@ -106,5 +106,33 @@
   {
     "id": 49,
     "sport_name": "Short Track Speed Skating"
+  },
+  {
+    "id": 12,
+    "sport_name": "Biathlon"
+  },
+  {
+    "id": 18,
+    "sport_name": "Cross Country Skiing"
+  },
+  {
+    "id": 24,
+    "sport_name": "Figure Skating"
+  },
+  {
+    "id": 33,
+    "sport_name": "Judo"
+  },
+  {
+    "id": 35,
+    "sport_name": "Luge"
+  },
+  {
+    "id": 48,
+    "sport_name": "Shooting"
+  },
+  {
+    "id": 55,
+    "sport_name": "Swimming"
   }
 ]
