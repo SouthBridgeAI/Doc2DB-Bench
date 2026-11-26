@@ -38,6 +38,25 @@ def test_column_name_case_not_double_counted_in_entity_and_relation_scores(evalu
     assert (m["entity_f1"], m["relation_f1"]) == (100.0, 100.0)
 
 
+# Pairing the identical rows first (greedy) leaves the other two rows below the 0.3 threshold;
+# crossing them pairs both rows and finds 5 correct cells instead of 4 (report 028).
+ROW_PAIRING_GT = {"T": [{"a": "alpha", "b": "bravo", "c": "charlie", "d": "delta"},
+                        {"a": "alpha", "b": "bravo", "c": "charlie", "d": "zzzzzzzzzz"}]}
+ROW_PAIRING_GEN = {"T": [{"a": "alpha", "b": "bravo", "c": "charlie", "d": "delta"},
+                         {"a": "alpha", "b": "qqqqqqqqqq", "c": "wwwwwwwwww", "d": "delta"}]}
+
+
+def test_row_pairing_maximises_total_similarity(evaluator):
+    m = evaluator.calculate_cell_metrics(ROW_PAIRING_GEN, ROW_PAIRING_GT)
+    assert m["total_correct_cells"] == 5   # was 4 (report 028)
+
+
+def test_row_pairing_maximises_total_similarity_in_entity_and_relation_scores(evaluator):
+    schema = [{"name": "T", "type": "entity", "fields": [{"name": f, "constraints": {}} for f in "abcd"]}]
+    m = evaluator.calculate_entity_relation_metrics(ROW_PAIRING_GEN, ROW_PAIRING_GT, schema)
+    assert m["entity_correct_cells"] == 5  # was 4 (report 028)
+
+
 def test_time_with_seconds_matches(evaluator):
     assert evaluator.compare_cell_values("2008-04-24 10:00", "2008-04-24 10:00:00")["match"]
 
