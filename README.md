@@ -176,6 +176,16 @@ If you want to work from the benchmark implementation, the practical entry point
 1. read [`data_construction/README.md`](./data_construction/README.md) to understand the DB2Doc synthesis pipeline
 2. read [`evaluation/README.md`](./evaluation/README.md) to understand the extraction baselines and evaluation workflow
 
+### Running the tests
+
+```
+pip install -r requirements-dev.txt
+pytest            # fast suite, a few seconds, no API keys
+pytest -m slow    # also scores the ground truth of all 42 cases against itself (~4 min)
+```
+
+A bug fix starts with a failing test in `tests/`.
+
 ## 🤝Acknowledgement
 
 We thank the teams behind [Spider](https://yale-lily.github.io/spider) and [BIRD](https://bird-bench.github.io/) for providing the source datasets used in this work.
