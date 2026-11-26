@@ -13,7 +13,7 @@
 
 $\color{#2F5F8F}\mathbf{Doc2DB{-}Bench}$ is a benchmark for evaluating **document-to-database construction** rather than flat document-to-table extraction. It targets realistic settings where long documents must be converted into normalized relational databases with entity identities, keys, cross-table links, and integrity constraints.
 
-The benchmark is built with a controllable **DB2Doc reverse-synthesis** pipeline grounded in real relational databases, and it is organized by a two-pillar capability taxonomy covering both **intra-table extraction** and **inter-table relational reasoning**. The current release contains **203 long-document instances** across **42 schemas** and **7 domains**, with **110 entity tables**, **122 relationship tables**, **7,530 rows**, and **42,292 cells**.
+The benchmark is built with a controllable **DB2Doc reverse-synthesis** pipeline grounded in real relational databases, and it is organized by a two-pillar capability taxonomy covering both **intra-table extraction** and **inter-table relational reasoning**. The current release contains **203 long-document instances** across **42 schemas** and **7 domains**, with **110 entity tables**, **122 relationship tables**, **7,530 rows**, and **42,292 cells**. Two of the cases, `medical/case2` and `medical/case3`, share one database (the same schema and ground truth) rendered in two different document styles, so the 42 cases cover 41 distinct databases; the table, row and cell counts include both.
 
 <p align="center">
   <img src="assets/dataset.png" alt="Dataset statistics across domains and schemas." />
