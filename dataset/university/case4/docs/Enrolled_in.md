@@ -3,7 +3,7 @@
 TABLE 1
 Dinesh Kumar: ALGORITHMS I | A plus
 Mark Schwartz: DATABASE SYSTEMS | B-
-Mark Schwartz: SOUND STRUCTURES IN NATURAL LANGUAGE | A</r0_16_c2>
+Mark Schwartz: SOUND STRUCTURES IN NATURAL LANGUAGE | A
 
 The final grades for select coursework are recorded in the preceding table, reflecting the academic outcomes for the specified term. For instance, Dinesh Kumar's performance in the ALGORITHMS I course culminated in him earning an A plus as his final grade. Similarly, records for Mark Schwartz's coursework included both DATABASE SYSTEMS and SOUND STRUCTURES IN NATURAL LANGUAGE. Final academic evaluations confirmed that the grade recorded for the former was a B-, while the latter course resulted in an A. All final grades are typically submitted by faculty within 72 hours of the final examination period. However, the final academic record reflects not only completed coursework but also administrative actions related to enrollment, such as voided registrations.
 
