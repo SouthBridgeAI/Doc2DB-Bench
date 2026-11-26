@@ -9,11 +9,7 @@
         "type": "INTEGER",
         "constraints": {
           "nullable": true,
-          "primary_key": true,
-          "foreign_key": {
-            "table": "Party_Addresses",
-            "column": "address_id"
-          }
+          "primary_key": true
         }
       },
       {
@@ -146,11 +142,7 @@
         "type": "INTEGER",
         "constraints": {
           "nullable": true,
-          "primary_key": true,
-          "foreign_key": {
-            "table": "Organization_Contact_Individuals",
-            "column": "individual_id"
-          }
+          "primary_key": true
         }
       },
       {
@@ -207,11 +199,7 @@
         "type": "INTEGER",
         "constraints": {
           "nullable": true,
-          "primary_key": true,
-          "foreign_key": {
-            "table": "Organization_Contact_Individuals",
-            "column": "organization_id"
-          }
+          "primary_key": true
         }
       },
       {

@@ -9,11 +9,7 @@
         "type": "int",
         "constraints": {
           "nullable": true,
-          "primary_key": true,
-          "foreign_key": {
-            "table": "temperature",
-            "column": "City_ID"
-          }
+          "primary_key": true
         }
       },
       {
