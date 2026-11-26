@@ -6,3 +6,4 @@ tiktoken
 networkx
 openpyxl
 pydantic>=2.7
+scipy>=1.4

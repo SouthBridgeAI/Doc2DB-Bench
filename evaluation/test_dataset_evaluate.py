@@ -16,6 +16,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from openai import OpenAI
+from scipy.optimize import linear_sum_assignment
 
 project_root = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, project_root)
@@ -1130,7 +1131,28 @@ class Doc2DBEvaluator:
                 field_scores.append(comparison['similarity'])
         
         return sum(field_scores) / len(field_scores) if field_scores else 0.0
-    
+
+    def _pair_rows(self, expected_rows: list, generated_rows: list) -> Dict[int, int]:
+        """Pair expected and generated rows by global maximum weight matching on row similarity.
+
+        Returns {expected_index: generated_index}. A pair scoring below 0.3 is never used.
+        """
+        if not expected_rows or not generated_rows:
+            return {}
+        scores = [[0.0] * len(generated_rows) for _ in expected_rows]
+        for exp_idx, expected_row in enumerate(expected_rows):
+            if not isinstance(expected_row, dict):
+                continue
+            for gen_idx, gen_row in enumerate(generated_rows):
+                if not isinstance(gen_row, dict):
+                    continue
+                score = self._calculate_row_similarity(expected_row, gen_row)
+                if score >= 0.3:  # 只保留及格的候选者
+                    scores[exp_idx][gen_idx] = score
+        # Below-threshold entries weigh 0, so the matching may use them; they are dropped here.
+        exp_indices, gen_indices = linear_sum_assignment(scores, maximize=True)
+        return {int(e): int(g) for e, g in zip(exp_indices, gen_indices) if scores[e][g] > 0}
+
     UNMATCHED_KEY = "<unmatched key>"
 
     def align_surrogate_keys(self, generated: Dict[str, Any], expected: Dict[str, Any],
@@ -1558,37 +1580,11 @@ class Doc2DBEvaluator:
                                     break
                 
                 # =================================================================
-                # 🚀 改进的行匹配算法：全局最高分优先分配 (Global Maximum Assignment)
+                # 🚀 改进的行匹配算法：全局最大权匹配 (Global Maximum Weight Matching)
                 # 解决因漏抽导致的“贪心抢占”与“级联错位”问题
                 # =================================================================
-                
-                # 1. 计算所有可能的 (Expected_Row, Generated_Row) 的得分矩阵
-                match_candidates = []
-                for exp_idx, expected_row in enumerate(expected_rows):
-                    if not isinstance(expected_row, dict):
-                        continue
-                    for gen_idx, gen_row in enumerate(generated_rows):
-                        if not isinstance(gen_row, dict):
-                            continue
-                        
-                        # 计算这对组合的相似度
-                        score = self._calculate_row_similarity(expected_row, gen_row)
-                        if score >= 0.3:  # 只保留及格的候选者
-                            match_candidates.append((score, exp_idx, gen_idx))
-                
-                # 2. 按得分从高到低排序 (优先成全得分最高的“天作之合”)
-                match_candidates.sort(key=lambda x: x[0], reverse=True)
-                
-                # 3. 执行分配
-                used_expected_indices = set()
-                used_generated_indices = set()
-                final_matches = {}  # 记录 exp_idx -> gen_idx
-                
-                for score, exp_idx, gen_idx in match_candidates:
-                    if exp_idx not in used_expected_indices and gen_idx not in used_generated_indices:
-                        final_matches[exp_idx] = gen_idx
-                        used_expected_indices.add(exp_idx)
-                        used_generated_indices.add(gen_idx)
+                final_matches = self._pair_rows(expected_rows, generated_rows)  # 记录 exp_idx -> gen_idx
+                used_generated_indices = set(final_matches.values())
 
                 # =================================================================
                 # 4. 根据分配结果，执行后续的 Cell 级精细比对
@@ -1915,30 +1911,10 @@ class Doc2DBEvaluator:
                     continue
                 
                 # =================================================================
-                # 🚀 替换为：全局最高分优先分配 (Global Maximum Assignment)
+                # 🚀 替换为：全局最大权匹配 (Global Maximum Weight Matching)
                 # =================================================================
-                match_candidates = []
-                for exp_idx, expected_row in enumerate(expected_rows):
-                    if not isinstance(expected_row, dict):
-                        continue
-                    for gen_idx, gen_row in enumerate(generated_rows):
-                        if not isinstance(gen_row, dict):
-                            continue
-                        score = self._calculate_row_similarity(expected_row, gen_row)
-                        if score >= 0.3:
-                            match_candidates.append((score, exp_idx, gen_idx))
-                
-                match_candidates.sort(key=lambda x: x[0], reverse=True)
-                
-                used_expected_indices = set()
-                used_generated_indices = set()
-                final_matches = {}
-                
-                for score, exp_idx, gen_idx in match_candidates:
-                    if exp_idx not in used_expected_indices and gen_idx not in used_generated_indices:
-                        final_matches[exp_idx] = gen_idx
-                        used_expected_indices.add(exp_idx)
-                        used_generated_indices.add(gen_idx)
+                final_matches = self._pair_rows(expected_rows, generated_rows)
+                used_generated_indices = set(final_matches.values())
                         
                 # =================================================================
                 # 执行 Cell 级清算
