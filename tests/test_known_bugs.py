@@ -72,3 +72,14 @@ def test_markdown_parser_keeps_empty_cells_in_place(cascade):
     response = "<TABLE BEGIN>\n| a | b | c |\n|---|---|---|\n| 1 |  | 3 |\n<TABLE END>"
     rows = cascade.parse_llm_response(response, {"name": "T", "attributes": []})["T"]
     assert rows == [{"a": "1", "b": None, "c": "3"}]   # today: b="3", c=None
+
+
+@pytest.mark.parametrize("expected, generated, match", [
+    (1.7, 1.7018, True), ("1.70", 1.7018, True), (1.7, "1.70", True),     # report 029: GT rounded a conversion
+    (1.7, 1.75, False), (1.7, 1.65, False), (12.5, 12.4, False),
+    (1.7018, 1.7, False),                                                 # a less precise prediction is wrong
+    (5, 5.4, True), (5, 5.6, False),                                      # an integer GT accepts what rounds to it
+])
+def test_numbers_compared_at_ground_truth_precision(evaluator, expected, generated, match):
+    assert evaluator.compare_cell_values(expected, generated)["match"] is match
+
