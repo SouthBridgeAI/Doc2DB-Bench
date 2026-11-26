@@ -208,7 +208,8 @@
         "name": "Date",
         "type": "DATE",
         "constraints": {
-          "nullable": false
+          "nullable": false,
+          "primary_key": true
         },
         "description": "Date of the laboratory tests (YYYY-MM-DD)"
       },
