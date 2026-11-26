@@ -1,14 +1,14 @@
 {
     "database_id": "shipping",
     "if_primary_allowed": {
-        "Shipment": false,
+        "shipment": false,
         "customer": false,
         "city": false,
         "driver": false,
         "truck": false
     },
     "type": {
-        "Shipment": [
+        "shipment": [
             "1:4"
         ]
     },

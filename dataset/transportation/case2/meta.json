@@ -3,7 +3,7 @@
     "if_primary_allowed": {
         "aircraft": false,
         "certificate": false,
-        "employess": false,
+        "employee": false,
         "flight": false
     },
     "type": {

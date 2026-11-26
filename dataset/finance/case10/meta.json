@@ -1,7 +1,6 @@
 {
     "database_id": "customer_deliveries",
     "if_primary_allowed": {
-        "Actual_Order_Products": false,
         "Customers": false,
         "Addresses": false,
         "Customer_Addresses": false,

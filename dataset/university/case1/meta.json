@@ -2,16 +2,16 @@
     "database_name": "cs_semester",
     "if_primary_allowed": {
         "RA": false,
-        "Student": false,
-        "Prof": false,
-        "Course": false,
-        "Registration": false
+        "student": false,
+        "prof": false,
+        "course": false,
+        "registration": false
     },
     "type": {
         "RA": [
             "1:2"
         ],
-        "Registration": [
+        "registration": [
             "1:2"
         ]
     },

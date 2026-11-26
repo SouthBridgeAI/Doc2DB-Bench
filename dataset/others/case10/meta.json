@@ -2,8 +2,6 @@
     "database_name": "e_government",
     "if_primary_allowed": {
         "Addresses": false,
-        "Student": false,
-        "Direct_distance": false,
         "Services": false,
         "Forms": false,
         "Individuals": false,
@@ -15,9 +13,6 @@
         "Party_Services": false
     },
     "type": {
-        "Direct_distance": [
-            "1:2"
-        ],
         "Forms": [
             "1:1"
         ],
