@@ -551,7 +551,7 @@ class Doc2DBEvaluator:
                 pass
             
             import re
-            if re.match(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}', value.strip()):
+            if re.match(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}', value.strip()) or self.parse_date_value(value):
                 return "date"
             
             if value.strip().lower() in ['true', 'false', 'yes', 'no', '是', '否']:
@@ -559,6 +559,38 @@ class Doc2DBEvaluator:
         
         return "string"
     
+    def parse_date_value(self, value: Any) -> Optional[tuple]:
+        """Parse a date or datetime string into (datetime, precision), or None.
+
+        Accepts Y-M-D or Y/M/D, and M/D/Y (US order, as used in the dataset),
+        optionally followed by a time "HH:MM" or "HH:MM:SS" after "T" or a space,
+        and a "UTC"/"Z" suffix; also "23 July 1992". precision is "date",
+        "minute" or "second".
+        """
+        if not isinstance(value, str):
+            return None
+        import re
+        time_part = r'(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?(?:\s*(?:UTC|Z))?'
+        text = value.strip()
+        m = re.fullmatch(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})' + time_part, text)
+        if m:
+            year, month, day, hour, minute, second = m.groups()
+        else:
+            m = re.fullmatch(r'(\d{1,2})/(\d{1,2})/(\d{4})' + time_part, text)
+            if not m:
+                try:
+                    return datetime.strptime(text, '%d %B %Y'), "date"
+                except ValueError:
+                    return None
+            month, day, year, hour, minute, second = m.groups()
+        precision = "date" if hour is None else ("minute" if second is None else "second")
+        try:
+            parsed = datetime(int(year), int(month), int(day),
+                              int(hour or 0), int(minute or 0), int(second or 0))
+        except ValueError:
+            return None
+        return parsed, precision
+
     def normalize_numeric_value(self, value: Any) -> tuple[float, int]:
         """标准化数值，返回(数值, 小数位数)"""
         if value is None or value == "":
@@ -1081,6 +1113,24 @@ class Doc2DBEvaluator:
         elif result['expected_type'] == 'date' or result['generated_type'] == 'date':
             exp_str = self.normalize_string_value(expected)
             gen_str = self.normalize_string_value(generated)
+            
+            exp_parsed = self.parse_date_value(exp_str)
+            gen_parsed = self.parse_date_value(gen_str)
+            if exp_parsed and gen_parsed:
+                # Compare at the ground truth's precision.
+                exp_dt, precision = exp_parsed
+                gen_dt = gen_parsed[0]
+                if gen_parsed[1] == 'date' and precision != 'date':
+                    return result
+                if precision == 'date':
+                    exp_dt, gen_dt = exp_dt.date(), gen_dt.date()
+                elif precision == 'minute':
+                    gen_dt = gen_dt.replace(second=0)
+                if exp_dt == gen_dt:
+                    result['match'] = True
+                    result['match_type'] = 'date_parsed'
+                    result['similarity'] = 1.0
+                return result
             
             import re
             exp_normalized = re.sub(r'[-/\s]+', '-', exp_str)
