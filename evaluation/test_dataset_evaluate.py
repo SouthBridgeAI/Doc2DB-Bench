@@ -68,7 +68,8 @@ class Doc2DBEvaluator:
                  model: str = DEFAULT_MODEL, run_name: Optional[str] = None,
                  document_mode: str = 'single', enable_llm_eval: bool = True,
                  db_name_filter: Optional[str] = None, case_name_filter: Optional[str] = None,
-                 eval_mode: str = 'pipeline', evaluate_entity_pk: bool = False):
+                 eval_mode: str = 'pipeline', evaluate_entity_pk: bool = False,
+                 align_keys: bool = True):
         self.backend_url = backend_url
         self.dataset_dir = dataset_dir
         self.output_dir = output_dir
@@ -80,6 +81,7 @@ class Doc2DBEvaluator:
         self.case_name_filter = case_name_filter
         self.eval_mode = eval_mode
         self.evaluate_entity_pk = evaluate_entity_pk
+        self.align_keys = align_keys
         self.results = []
         
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -923,6 +925,7 @@ class Doc2DBEvaluator:
         """统一构建评估结果；oracle模式下仅输出关系表评估。"""
         if self.eval_mode == "oracle":
             evaluation = {
+                "key_matching": "aligned" if self.align_keys else "literal",
                 "relation_table_metrics": self._build_oracle_relation_table_metrics(cell_metrics, schema),
                 "relation_precision": structural_metrics.get('relation_precision', 0),
                 "relation_recall": structural_metrics.get('relation_recall', 0),
@@ -936,6 +939,7 @@ class Doc2DBEvaluator:
             return evaluation
 
         evaluation = {
+            "key_matching": "aligned" if self.align_keys else "literal",
             "cell_recall": cell_metrics['cell_recall'],
             "cell_precision": cell_metrics['cell_precision'],
             "cell_f1": cell_metrics['cell_f1'],
@@ -1139,6 +1143,123 @@ class Doc2DBEvaluator:
         
         return sum(field_scores) / len(field_scores) if field_scores else 0.0
     
+    UNMATCHED_KEY = "<unmatched key>"
+
+    def align_surrogate_keys(self, generated: Dict[str, Any], expected: Dict[str, Any],
+                             schema: Dict[str, Any], case_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Rename generated surrogate keys to the ground-truth keys of the rows they describe.
+
+        Most identifiers in this benchmark are never stated in the documents, so a system can only
+        invent them. What it can get right is which records they connect. For every table whose
+        primary key is a single column that is not a foreign key and not stated in the documents
+        (meta.json if_primary_allowed), generated rows are paired one-to-one with ground-truth rows
+        on their other columns, and the generated key is renamed to the paired row's key, in that
+        column and in every foreign key that points at it. Tables are aligned in foreign-key order,
+        so a row identified only by what it links (film + address) is paired on its already renamed
+        foreign keys. The key of a generated record that pairs with no ground-truth row becomes
+        UNMATCHED_KEY, which matches nothing. A foreign key that refers to no generated record, and
+        keys the documents state, are left as written. This runs after extraction, on the scorer's
+        side, so the model never sees the ground truth, and a system that numbers records
+        consistently can reach full marks.
+        """
+        def constraints(field):
+            c = field.get('constraints') if isinstance(field, dict) else None
+            return c if isinstance(c, dict) else {}
+
+        def get(row, column):
+            for k, v in row.items():
+                if k.lower() == column.lower():
+                    return v
+            return None
+
+        fields_by_table = {
+            t['name'].lower(): (t.get('attributes') or t.get('fields') or [])
+            for t in schema.get('tables', []) if isinstance(t, dict) and t.get('name')
+        }
+        stated = self._get_entity_pk_allowed_from_meta(case_info)
+
+        surrogate = {}  # table -> its surrogate key column
+        for table, fields in fields_by_table.items():
+            pk = [f for f in fields if isinstance(f, dict) and constraints(f).get('primary_key')]
+            if len(pk) == 1 and not constraints(pk[0]).get('foreign_key') and not stated.get(table):
+                surrogate[table] = pk[0]['name']
+        if not surrogate:
+            return generated
+
+        key_columns: Dict[str, Dict[str, str]] = {}  # table -> {column: table whose key it holds}
+        for table, column in surrogate.items():
+            key_columns.setdefault(table, {})[column.lower()] = table
+        for table, fields in fields_by_table.items():
+            for f in fields:
+                fk = constraints(f).get('foreign_key')
+                if isinstance(fk, dict) and str(fk.get('table', '')).lower() in surrogate \
+                        and str(fk.get('column', '')).lower() == surrogate[str(fk['table']).lower()].lower():
+                    key_columns.setdefault(table, {})[f['name'].lower()] = str(fk['table']).lower()
+
+        # Foreign-key order: a table is aligned after the tables its keys point at (cycles: schema order).
+        order, pending = [], list(surrogate)
+        while pending:
+            ready = [t for t in pending
+                     if all(target in order or target == t or target not in surrogate
+                            for target in key_columns.get(t, {}).values())] or pending[:1]
+            order.extend(ready)
+            pending = [t for t in pending if t not in ready]
+
+        generated_by_table = {k.lower(): v for k, v in generated.items() if isinstance(v, list)}
+        expected_by_table = {k.lower(): v for k, v in expected.items() if isinstance(v, list)}
+        renames: Dict[str, Dict[str, Any]] = {}
+        unmatched: Dict[str, set] = {}  # keys of generated records that paired with nothing
+
+        def translate(value, target):
+            if value is None or target not in renames:
+                return value
+            if str(value) in renames[target]:
+                return renames[target][str(value)]
+            return self.UNMATCHED_KEY if str(value) in unmatched[target] else value
+
+        for table in order:
+            column = surrogate[table]
+            gen_rows = [r for r in generated_by_table.get(table) or [] if isinstance(r, dict)]
+            exp_rows = [r for r in expected_by_table.get(table) or [] if isinstance(r, dict)]
+            if not gen_rows or not exp_rows:
+                continue
+            columns = key_columns.get(table, {})
+            # Pair on everything but this table's own key and keys into tables not aligned yet.
+            usable = lambda k: k.lower() not in columns or (columns[k.lower()] != table and columns[k.lower()] in renames)
+            gen_content = [{k: translate(v, columns.get(k.lower())) for k, v in r.items() if usable(k)} for r in gen_rows]
+            exp_content = [{k: v for k, v in r.items() if usable(k)} for r in exp_rows]
+            candidates = []
+            for i, g in enumerate(gen_content):
+                for j, e in enumerate(exp_content):
+                    score = self._calculate_row_similarity(g, e)
+                    if score >= 0.3:
+                        candidates.append((score, i, j))
+            candidates.sort(key=lambda c: (-c[0], c[1], c[2]))
+            used_gen, used_exp, targets = set(), set(), {}
+            for _, i, j in candidates:
+                if i in used_gen or j in used_exp:
+                    continue
+                used_gen.add(i)
+                used_exp.add(j)
+                g_key, e_key = get(gen_rows[i], column), get(exp_rows[j], column)
+                if g_key is not None and e_key is not None:
+                    targets.setdefault(str(g_key), []).append(e_key)
+            # A generated key reused for rows that pair with different records is ambiguous: no rename.
+            renames[table] = {g: e[0] for g, e in targets.items() if all(x == e[0] for x in e)}
+            unmatched[table] = {str(get(r, column)) for r in gen_rows if get(r, column) is not None} - set(renames[table])
+
+        aligned = {}
+        for name, rows in generated.items():
+            columns = key_columns.get(name.lower()) if isinstance(rows, list) else None
+            if not columns:
+                aligned[name] = rows
+                continue
+            aligned[name] = [
+                {k: translate(v, columns.get(k.lower())) for k, v in row.items()} if isinstance(row, dict) else row
+                for row in rows
+            ]
+        return aligned
+
     def _normalize_schema_for_metrics(self, schema: Any) -> Dict[str, Any]:
         """将多种顶层 schema 结构统一为含 ``tables`` 列表的字典（与 llm_evaluate_cascade.normalize_schema 一致）。
 
@@ -1362,6 +1483,8 @@ class Doc2DBEvaluator:
         try:
             if schema is not None:
                 schema = self._normalize_schema_for_metrics(schema)
+                if self.align_keys:
+                    generated = self.align_surrogate_keys(generated, expected, schema, case_info)
             comparison_results = []
             table_stats = {}
             skipped_id_fields = set()
@@ -3602,6 +3725,10 @@ def main():
             'pipeline-oracle=与 pipeline 相同，优先读取 extracted_data_pipeline_oracle.json（*_evaluate_pipeline_oracle.json）'
         ),
     )
+    parser.add_argument('--literal-keys', action='store_true',
+                        help='Score identifiers the documents do not state as literal values, as in the published '
+                             'leaderboard. By default they are renamed to the ground-truth rows they pair with '
+                             '(see align_surrogate_keys).')
     parser.add_argument('--evaluate-entity-pk', action='store_true',
                         help='是否在评估时将实体表的主键计入得分（默认: False，即自动跳过无业务含义的实体表主键）')
     
@@ -3628,6 +3755,7 @@ def main():
             document_mode=args.document_mode,
             eval_mode=args.eval_mode,
             evaluate_entity_pk=args.evaluate_entity_pk,
+            align_keys=not args.literal_keys,
         )
         
         try:
@@ -3677,6 +3805,7 @@ def main():
         case_name_filter=args.case_name,
         eval_mode=args.eval_mode,
         evaluate_entity_pk=args.evaluate_entity_pk,
+        align_keys=not args.literal_keys,
         enable_llm_eval = True
     )
     

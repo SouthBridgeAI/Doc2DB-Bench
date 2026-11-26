@@ -89,6 +89,9 @@ MODEL_MAX_CHARS_BY_MODEL = {
     "gpt-4o": 500000,
     "qwen2.5-14b-ins": 500000,
 }
+# Modes that put ground-truth tables in the model's prompt. "pipeline" never reads the ground truth.
+GROUND_TRUTH_MODES = ("oracle", "pipeline-oracle")
+
 OPEN_SOURCE_MODEL_PREFIXES = (
     "llama-3.1-8b-ins",
     # "qwen2.5-",
@@ -449,79 +452,6 @@ class LLMExtractorEvaluator:
             return self._merge_multi_table_json_dir(path, "tables")
         return self._merge_multi_table_json_dir(path, "answer")
 
-    def load_if_primary_allowed(self, case_info: Dict[str, Any]) -> Dict[str, bool]:
-        """读取 case 下 meta.json 的 if_primary_allowed，返回小写表名映射。"""
-        meta_path = case_info.get("meta_file")
-        if not meta_path:
-            return {}
-        meta_path = Path(meta_path)
-        if not meta_path.is_file():
-            return {}
-        try:
-            with open(meta_path, "r", encoding="utf-8") as f:
-                meta = json.load(f)
-            if not isinstance(meta, dict):
-                return {}
-            raw = meta.get("if_primary_allowed", {})
-            if not isinstance(raw, dict):
-                return {}
-            normalized: Dict[str, bool] = {}
-            for table_name, flag in raw.items():
-                if isinstance(table_name, str):
-                    normalized[table_name.lower()] = bool(flag)
-            return normalized
-        except Exception as e:
-            logger.warning(f"  ⚠️  读取 meta.json(if_primary_allowed) 失败，忽略该配置: {e}")
-            return {}
-
-    def _normalize_meta_type_tokens(self, raw_type: Any) -> List[str]:
-        """将 meta.type 的值统一为小写 token 列表，兼容字符串/列表/字符串化列表。"""
-        if isinstance(raw_type, list):
-            vals = raw_type
-        else:
-            text = str(raw_type).strip()
-            if text.startswith("[") and text.endswith("]"):
-                try:
-                    parsed = json.loads(text.replace("'", '"'))
-                    vals = parsed if isinstance(parsed, list) else [text]
-                except Exception:
-                    vals = [text]
-            else:
-                vals = [text]
-        return [str(v).strip().lower() for v in vals if str(v).strip()]
-
-    def load_multihop_relation_flags(self, case_info: Dict[str, Any]) -> Dict[str, bool]:
-        """读取 case 下 meta.json 的 type 字段，标记哪些表属于 multi-hop 关系表。"""
-        meta_path = case_info.get("meta_file")
-        if not meta_path:
-            return {}
-        meta_path = Path(meta_path)
-        if not meta_path.is_file():
-            return {}
-        try:
-            with open(meta_path, "r", encoding="utf-8") as f:
-                meta = json.load(f)
-            if not isinstance(meta, dict):
-                return {}
-            raw_type_map = meta.get("type", {})
-            if not isinstance(raw_type_map, dict):
-                return {}
-
-            flags: Dict[str, bool] = {}
-            for table_name, raw_type in raw_type_map.items():
-                if not isinstance(table_name, str):
-                    continue
-                tokens = self._normalize_meta_type_tokens(raw_type)
-                is_multihop = any(
-                    t in {"2-hop", "multi-hop", "multihop", "2hop", "hop2"}
-                    for t in tokens
-                )
-                flags[table_name.lower()] = is_multihop
-            return flags
-        except Exception as e:
-            logger.warning(f"  ⚠️  读取 meta.json(type) 失败，忽略 multi-hop 跳过配置: {e}")
-            return {}
-    
     def normalize_schema(self, raw: Any) -> Dict[str, Any]:
         """将多种 schema.json 顶层结构统一为内部使用的 dict（含 ``tables`` 列表）。
 
@@ -1449,8 +1379,9 @@ Please return the Markdown tables in the format specified. Remember to wrap EVER
                 prompt_parts.append(header)
                 prompt_parts.append(separator)
                 
-                # 数据行（限制显示前50行）
-                max_rows = min(50, len(table_data))
+                # 数据行：pipeline 模式下参考表是模型自己的抽取结果，全部显示，否则后面的行无法被引用；
+                # oracle 模式保持原来的前 50 行
+                max_rows = len(table_data) if self.eval_mode == "pipeline" else min(50, len(table_data))
                 for row in table_data[:max_rows]:
                     values = [str(row.get(f, '')) for f in fields]
                     data_row = "  | " + " | ".join(values) + " |"
@@ -1541,159 +1472,6 @@ Please return the Markdown table result. Remember to use ID values from referenc
                 return attr.get('name')
         return None
 
-    def _get_key_fields_from_table_def(self, table_def: Dict[str, Any]) -> set[str]:
-        """获取表中所有关键字段（主键 + 外键）"""
-        key_fields = set()
-        if not table_def:
-            return key_fields
-        for attr in table_def.get("attributes", []):
-            name = attr.get("name")
-            if not name:
-                continue
-            constraints = attr.get("constraints", {})
-            if not isinstance(constraints, dict):
-                continue
-            if constraints.get("primary_key", False) or constraints.get("foreign_key"):
-                key_fields.add(name)
-        return key_fields
-
-    def _get_foreign_key_fields_in_order(self, table_def: Dict[str, Any]) -> List[str]:
-        """按 schema 属性顺序返回外键字段名列表。"""
-        fk_fields: List[str] = []
-        if not table_def:
-            return fk_fields
-        for attr in table_def.get("attributes", []):
-            name = attr.get("name")
-            if not name:
-                continue
-            constraints = attr.get("constraints", {})
-            if not isinstance(constraints, dict):
-                continue
-            if constraints.get("foreign_key"):
-                fk_fields.append(name)
-        return fk_fields
-
-    def _find_expected_table_rows(self, expected_answer: Dict[str, Any], table_name: str) -> List[Dict[str, Any]]:
-        """在 expected_answer 中按表名（大小写不敏感）查找对应表数据"""
-        if not isinstance(expected_answer, dict):
-            return []
-        key_map = {k.lower(): k for k in expected_answer.keys()}
-        matched = key_map.get(table_name.lower())
-        if not matched:
-            return []
-        rows = expected_answer.get(matched, [])
-        if isinstance(rows, list):
-            return rows
-        return []
-
-    def _align_rows_with_gt_keys(
-        self,
-        table_name: str,
-        table_def: Dict[str, Any],
-        extracted_rows: List[Dict[str, Any]],
-        expected_answer: Dict[str, Any],
-        allow_primary_key_backfill: bool = True,
-        skip_key_fields: Optional[set[str]] = None,
-    ) -> List[Dict[str, Any]]:
-        """基于 GT 行匹配并回填主外键，解决文档无ID时的后续关系抽取问题。"""
-        if not extracted_rows or not table_def:
-            return extracted_rows
-
-        gt_rows = self._find_expected_table_rows(expected_answer, table_name)
-        if not gt_rows:
-            logger.warning(f"  ⚠️  [Pipeline补键] GT 中未找到表 {table_name}，跳过补键")
-            return extracted_rows
-
-        key_fields = self._get_key_fields_from_table_def(table_def)
-        if not key_fields:
-            return extracted_rows
-        primary_key_field = self._get_primary_key_from_table_def(table_def)
-        fill_key_fields = set(key_fields)
-        if not allow_primary_key_backfill and primary_key_field:
-            fill_key_fields.discard(primary_key_field)
-        if skip_key_fields:
-            fill_key_fields -= set(skip_key_fields)
-        if not fill_key_fields:
-            logger.info(
-                f"  ℹ️  [Pipeline补键] 表 {table_name}: 可回填关键字段为空（主键禁补或字段被跳过），跳过补键"
-            )
-            return extracted_rows
-
-        # 用于匹配的字段：排除主外键，仅用业务字段做相似匹配
-        candidate_fields = []
-        for attr in table_def.get("attributes", []):
-            name = attr.get("name")
-            if name and name not in key_fields:
-                candidate_fields.append(name)
-
-        used_gt_idx = set()
-        replaced_count = 0
-        aligned_rows: List[Dict[str, Any]] = []
-
-        for row in extracted_rows:
-            if not isinstance(row, dict):
-                aligned_rows.append(row)
-                continue
-
-            best_idx = -1
-            best_score = -1
-            best_overlap = 0
-
-            for idx, gt_row in enumerate(gt_rows):
-                if idx in used_gt_idx or not isinstance(gt_row, dict):
-                    continue
-
-                overlap = 0
-                score = 0
-                for field in candidate_fields:
-                    row_val = row.get(field)
-                    gt_val = gt_row.get(field)
-                    row_norm = self.normalize_value(row_val)
-                    gt_norm = self.normalize_value(gt_val)
-                    if row_norm and gt_norm:
-                        overlap += 1
-                        if row_norm == gt_norm:
-                            score += 1
-
-                if overlap == 0:
-                    continue
-                if score > best_score or (score == best_score and overlap > best_overlap):
-                    best_idx = idx
-                    best_score = score
-                    best_overlap = overlap
-
-            # 没有任何可用匹配时，保留原行
-            if best_idx < 0 or best_score <= 0:
-                aligned_rows.append(row)
-                continue
-
-            used_gt_idx.add(best_idx)
-            gt_row = gt_rows[best_idx]
-            updated = row.copy()
-            changed = False
-
-            # 仅回填关键字段（主键/外键，可按配置关闭主键回填）
-            for key_field in fill_key_fields:
-                gt_val = gt_row.get(key_field)
-                if gt_val is None:
-                    continue
-                if updated.get(key_field) != gt_val:
-                    updated[key_field] = gt_val
-                    changed = True
-
-            if changed:
-                replaced_count += 1
-            aligned_rows.append(updated)
-
-        if replaced_count > 0:
-            logger.info(
-                f"  🔧 [Pipeline补键] 表 {table_name}: 已为 {replaced_count}/{len(extracted_rows)} 行回填关键键（基于GT匹配）"
-            )
-        else:
-            logger.info(f"  ℹ️  [Pipeline补键] 表 {table_name}: 未发生主外键回填")
-        return aligned_rows
-    
-    # === [NEW] Extract Multi Entity Tables ===
     def _extract_multi_entity_tables(self, schema: Dict[str, Any], table_names: List[str], 
                                      merged_content: str) -> tuple[Dict[str, List[Dict]], List[str], Dict[str, Any]]:
         """在 single_mode 下，一次性抽取多个实体表"""
@@ -2115,6 +1893,13 @@ Please return the Markdown table result. Remember to use ID values from referenc
         schema_parts.append(f"- Values must comply with domain constraints if specified")
         schema_parts.append(f"- Follow format patterns exactly as defined")
         schema_parts.append(f"- Respect min/max value constraints")
+        if self.eval_mode == "pipeline":
+            # Most identifiers are not in the documents; the scorer accepts any consistent numbering.
+            schema_parts.append(
+                "- PRIMARY KEY and FOREIGN KEY fields: use the identifier the documents state. If they state none, "
+                "assign your own: number the records 1, 2, 3, ... in order of first mention, and use the same "
+                "number wherever that record is referred to"
+            )
         
         return "\n".join(schema_parts)
     
@@ -2527,6 +2312,7 @@ Now begin the evaluation:
         metadata[slot] = {
             'time': extraction_time,
             'result_data_file': out_name,
+            'uses_ground_truth': self.eval_mode in GROUND_TRUTH_MODES,
         }
         
         with open(metadata_path, 'w', encoding='utf-8') as f:
@@ -2586,11 +2372,12 @@ Now begin the evaluation:
             with open(case_info['schema_file'], 'r', encoding='utf-8') as f:
                 schema = self.normalize_schema(json.load(f))
             
-            # 2. 读取标准答案
-            logger.info("📋 读取标准答案...")
-            expected_answer = self.load_expected_answer(case_info)
-            if_primary_allowed = self.load_if_primary_allowed(case_info)
-            multihop_relation_flags = self.load_multihop_relation_flags(case_info)
+            # 2. 读取标准答案：只有 oracle / pipeline-oracle 会把 GT 给模型看；pipeline 模式从不读取 GT
+            if self.eval_mode in GROUND_TRUTH_MODES:
+                logger.info("📋 读取标准答案（GT 将出现在 prompt 中）...")
+                expected_answer = self.load_expected_answer(case_info)
+            else:
+                expected_answer = {}
             
             # 3. 合并文档内容
             logger.info(f"📚 合并 {len(case_info['doc_files'])} 个文档...")
@@ -2624,8 +2411,6 @@ Now begin the evaluation:
             logger.info(f"  开始按拓扑顺序提取 {total_tables} 个表 | 模式: {eval_mode_desc}")
             logger.info(f"{'='*60}")
             
-            # Pipeline 模式下，不将 expected_answer 传给抽取方法，防止任何 GT 泄漏
-            answer_for_extraction = expected_answer if self.eval_mode in ("oracle", "pipeline-oracle") else {}
             
 
             # ====== 新增: Single Mode 实体表聚合抽取 ======
@@ -2699,46 +2484,11 @@ Now begin the evaluation:
                     table_name,
                     merged_content,
                     extracted_data,
-                    answer_for_extraction,
+                    expected_answer,
                     case_info['case_dir']
                 )
                 all_prompt_sections.append(prompt_section)
 
-                # Pipeline 模式：文档常无ID，抽取后与GT按业务字段匹配，回填主外键再进入后续表抽取
-                if self.eval_mode == "pipeline" and table_name in table_results:
-                    table_def = self._get_table_definition(schema, table_name)
-                    allow_primary_key_backfill = True
-                    skip_key_fields: set[str] = set()
-
-                    # 实体表且 meta.json 标注 if_primary_allowed=true 时，不回填主键ID（避免覆盖模型可直接抽取到的主键）
-                    if table_name.lower() in entity_tables and if_primary_allowed.get(table_name.lower()) is True:
-                        allow_primary_key_backfill = False
-                        logger.info(
-                            f"  ℹ️  [Pipeline补键] 表 {table_name}: meta.if_primary_allowed=true，跳过主键ID回填"
-                        )
-
-                    # multi-hop 关系表：只跳过“最后一个外键字段”的GT回填，其他键仍允许回填
-                    if (
-                        multihop_relation_flags.get(table_name.lower(), False)
-                        and table_name.lower() not in entity_tables
-                    ):
-                        fk_fields = self._get_foreign_key_fields_in_order(table_def)
-                        if fk_fields:
-                            last_fk = fk_fields[-1]
-                            skip_key_fields.add(last_fk)
-                            logger.info(
-                                f"  ℹ️  [Pipeline补键] 表 {table_name}: multi-hop 关系表，跳过最后外键字段回填 -> {last_fk}"
-                            )
-
-                    table_results[table_name] = self._align_rows_with_gt_keys(
-                        table_name=table_name,
-                        table_def=table_def,
-                        extracted_rows=table_results[table_name],
-                        expected_answer=expected_answer,
-                        allow_primary_key_backfill=allow_primary_key_backfill,
-                        skip_key_fields=skip_key_fields,
-                    )
-                
                 extracted_data.update(table_results)
                 all_combined_responses.extend(table_responses)
                 
@@ -2902,8 +2652,8 @@ def main():
 评测模式说明:
   oracle   - 真值反馈模式：关系表的前置上下文来自 expected_answer（GT），
              衡量模型在完美前置条件下的理论关系抽取上限。
-  pipeline - 端到端模式：关系表的前置上下文 100%% 来自模型自己抽取的数据，
-             衡量误差累积（Error Propagation）对系统的真实影响。
+  pipeline - 端到端模式（默认，推荐第三方使用）：只读取文档和 schema，从不读取 GT；
+             关系表的前置上下文 100%% 来自模型自己抽取的数据，衡量误差累积的真实影响。
   pipeline-oracle - 混合模式：实体表走模型抽取；关系表继续调用LLM，但关系抽取参考表
                     来自 expected_answer（GT 实体表），用于隔离实体误差传播。
         '''
@@ -2920,7 +2670,7 @@ def main():
     parser.add_argument('--force-rerun', action='store_true',
                         help='强制重新运行所有案例，即使已经处理过（默认: False，会跳过已处理的案例）')
     parser.add_argument('--eval-mode', type=str, default='pipeline', choices=['oracle', 'pipeline', 'pipeline-oracle'],
-                        help='评测模式: oracle=真值反馈, pipeline=端到端, pipeline-oracle=实体预测+关系真值（默认: pipeline）')
+                        help='评测模式: pipeline=端到端，不读取 GT（默认，推荐）; oracle 和 pipeline-oracle 会把 GT 表放进 prompt，仅用于分析')
     parser.add_argument('--db-name', type=str, default=None,
                         help='只处理该数据库目录名（与 dataset 下文件夹名一致，默认处理全部）')
     parser.add_argument('--case-name', type=str, default=None,
