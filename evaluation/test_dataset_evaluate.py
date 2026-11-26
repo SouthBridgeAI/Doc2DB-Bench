@@ -984,9 +984,11 @@ class Doc2DBEvaluator:
             gen_val, gen_decimals = self.normalize_numeric_value(generated)
             
             if exp_val is not None and gen_val is not None:
-                if exp_val == gen_val:
+                # Compare at the ground truth's precision: the ground truth often rounds (1.70 m for
+                # 5 ft 7 in = 1.7018 m), so a more precise correct value must still match.
+                if exp_val == gen_val or round(gen_val, exp_decimals) == round(exp_val, exp_decimals):
                     result['match'] = True
-                    result['match_type'] = 'exact_numeric'
+                    result['match_type'] = 'exact_numeric' if exp_val == gen_val else 'rounded_numeric'
                     result['similarity'] = 1.0
                     
                     if result['expected_type'] != result['generated_type']:
