@@ -272,9 +272,7 @@
                 }
             }
         },
-        "Block": {},
         "Department": {},
-        "Medication": {},
         "Nurse": {
             "101": {
                 "Position": [
@@ -306,7 +304,6 @@
                 ]
             }
         },
-        "On_Call": {},
         "Patient": {
             "100000001": {
                 "Address": [
@@ -419,12 +416,6 @@
                 ],
                 "SSN": []
             }
-        },
-        "Prescribes": {},
-        "Procedures": {},
-        "Room": {},
-        "Stay": {},
-        "Trained_In": {},
-        "Undergoes": {}
+        }
     }
 }
