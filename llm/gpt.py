@@ -7,7 +7,8 @@ from openai import OpenAI
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(current_dir, ".env")
-config = dotenv_values(env_path)
+# Environment variables take precedence over llm/.env (see llm/.env.example).
+config = {**dotenv_values(env_path), **os.environ}
 
 
 def encode_image(image_path: str) -> str:

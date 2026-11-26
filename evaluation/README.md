@@ -115,10 +115,14 @@ Typical outputs:
 
 ## Main Evaluation: `test_dataset_evaluate.py`
 
-This is the most complete structured extraction evaluation script in the directory. Its workflow is:
+This is the most complete structured extraction evaluation script in the directory.
+
+**Use `--evaluate-only`.** It scores outputs that an extraction script (step 1 above) has already written, and needs nothing beyond this repository. Without `--evaluate-only`, the script sends each case's documents to a Doc2DB extraction service at `--backend-url` (default `http://localhost:5000`, endpoints `/api/upload` and `/api/doc2db/process`). That service is not included in this repository.
+
+Its full workflow is:
 
 1. Scan the test dataset directory
-2. Process documents and generate extraction outputs
+2. Process documents and generate extraction outputs (end-to-end mode only, through the external service)
 3. Extract table data from the results
 4. Save `output_tables.json`
 5. Compute structured extraction metrics
@@ -133,7 +137,7 @@ This is the most complete structured extraction evaluation script in the directo
 
 ### Common Usage
 
-Full processing + evaluation:
+Full processing + evaluation (requires the external extraction service at `--backend-url`):
 
 ```bash
 python test_dataset_evaluate.py
