@@ -18,6 +18,13 @@ def _encoding():
 def token_length(text):
     return len(_encoding().encode(text, disallowed_special=()))
 
+
+def exit_code(results):
+    """Process exit status for a run: 1 if no case was processed, or any case failed or had no output."""
+    if not results:
+        return 1
+    return 1 if any(r.get("status") in ("failed", "no_output") for r in results) else 0
+
 def read_json(path):
     if not os.path.exists(path):
         raise FileNotFoundError(f"File not found: {path}")

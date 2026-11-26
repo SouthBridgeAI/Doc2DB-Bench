@@ -22,6 +22,7 @@ sys.path.insert(0, project_root)
 from utils import token_length
 from dotenv import dotenv_values
 from utils import _clean_response
+from utils import exit_code
 env_path = Path(__file__).parent.parent/ "llm" / ".env"
 config = dotenv_values(env_path)
 DEFAULT_API_URL = config.get("GPT_URL_PRO")
@@ -49,8 +50,8 @@ logger = logging.getLogger(__name__)
 
 # 配置参数
 # 现在所有文件都在evaluate文件夹里，需要指向上一级目录
-DATASET_DIR = Path(__file__).parent.parent / "dataset/case/base_latest"
-OUTPUT_DIR = Path(__file__).parent.parent / "dataset/case/base_latest_output/langextract"
+DATASET_DIR = Path(__file__).parent.parent / "dataset"
+OUTPUT_DIR = Path(__file__).parent.parent / "outputs" / "langextract"
 DEFAULT_MODEL = "gpt-4o"
 
 
@@ -1875,6 +1876,10 @@ def main():
     parser.add_argument('--case-name', type=str, default=None,
                         help='仅评测指定案例目录（如 case2）')
     
+    parser.add_argument('--dataset-dir', type=str, default=str(DATASET_DIR),
+                        help=f'Dataset folder containing <domain>/<case>/ (default: {DATASET_DIR})')
+    parser.add_argument('--output-dir', type=str, default=str(OUTPUT_DIR),
+                        help=f'Folder for outputs and evaluation files (default: {OUTPUT_DIR})')
     args = parser.parse_args()
     
     print("\n" + "="*80)
@@ -1893,6 +1898,8 @@ def main():
     print("="*80 + "\n")
     
     evaluator = LangExtractEvaluator(
+        dataset_dir=Path(args.dataset_dir),
+        output_dir=Path(args.output_dir),
         model=args.model,
         run_name=args.run_name,
         api_base=args.api_base,
@@ -1907,10 +1914,13 @@ def main():
         evaluator.run_evaluation()
     except KeyboardInterrupt:
         print("\n\n⚠️  评估被用户中断")
+        sys.exit(130)
     except Exception as e:
         print(f"\n\n❌ 评估过程出错: {e}")
         import traceback
         traceback.print_exc()
+        sys.exit(1)
+    sys.exit(exit_code(evaluator.results))
 
 
 if __name__ == "__main__":
