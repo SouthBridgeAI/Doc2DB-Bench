@@ -98,7 +98,7 @@ This pipeline is implemented in [`data_construction/`](./data_construction/), wh
 
 The paper evaluates a range of proprietary and open-source LLMs on Doc2DB-Bench.
 
-**Which protocol these numbers use.** The leaderboard is produced by [`evaluation/result.ipynb`](./evaluation/result.ipynb), which averages `pipeline-oracle` runs of the cascade baseline. In that mode, the model is shown the ground-truth entity tables (identifiers included) while it extracts the relationship tables. To evaluate your own system, use `pipeline` mode, which reads only the documents and the schema. Identifiers that the documents never state are scored up to a consistent renaming, so a system doesn't need to guess the original IDs ([how identifiers are scored](./evaluation/README.md#how-identifiers-are-scored)). These scores are not directly comparable with this leaderboard. See [evaluation modes](./evaluation/README.md#evaluation-modes).
+**Which protocol these numbers use.** The leaderboard is produced by [`evaluation/result.ipynb`](./evaluation/result.ipynb), which averages `pipeline-oracle` runs of the cascade baseline. In that mode, the model is shown the ground-truth entity tables (identifiers included) while it extracts the relationship tables. To evaluate your own system, use `pipeline` mode, which reads only the documents and the schema. The scorer accepts any consistent numbering for identifiers the documents never state, so a system doesn't need to guess the original IDs ([how identifiers are scored](./evaluation/README.md#how-identifiers-are-scored)). The published leaderboard used `pipeline-oracle` and scored identifiers literally, so its numbers are not directly comparable. See [evaluation modes](./evaluation/README.md#evaluation-modes).
 
 ### Main findings
 
