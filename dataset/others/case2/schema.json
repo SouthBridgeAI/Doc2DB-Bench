@@ -65,7 +65,7 @@
         "name": "city_id",
         "type": "INTEGER",
         "constraints": {
-          "nullable": false,
+          "nullable": true,
           "foreign_key": {
             "table": "city",
             "column": "city_id"
