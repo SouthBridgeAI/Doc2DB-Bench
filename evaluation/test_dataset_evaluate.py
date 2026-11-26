@@ -729,77 +729,6 @@ class Doc2DBEvaluator:
         similarity = 1 - (distance / max_len)
         return max(0, similarity)
     
-    def _is_descriptive_field_match(self, expected_str: str, generated_str: str) -> bool:
-        """Check if descriptive fields match using keyword extraction"""
-        if not expected_str or not generated_str:
-            return False
-        
-        exp = expected_str.lower().strip()
-        gen = generated_str.lower().strip()
-        
-        if len(gen) > len(exp) * 2:
-            import re
-            exp_clean = re.sub(r'[^\w]', '', exp)
-            gen_clean = re.sub(r'[^\w]', '', gen)
-            if exp_clean in gen_clean:
-                return True
-        
-        if exp in gen or gen in exp:
-            return True
-        
-        import re
-        
-        stop_words = {
-            '的', '了', '和', '是', '在', '有', '与', '对', '及', '等', 
-            '等等', '为', '以', '由', '被', '将', '可', '也', '都', '而',
-            '本', '该', '此', '这', '那', '其', '之', '于', '从', '到',
-            '课程', '本课程', '该课程', '学生', '设计', '提供',
-            '介绍', '涵盖', '探讨', '包括', '教授'
-        }
-        
-        def extract_keywords(text):
-            keywords = set()
-            
-            chinese_phrases = re.findall(r'[\u4e00-\u9fa5]{2,6}', text)
-            for phrase in chinese_phrases:
-                if phrase not in stop_words:
-                    keywords.add(phrase)
-                    if len(phrase) > 2:
-                        for i in range(len(phrase) - 1):
-                            sub_phrase = phrase[i:i+2]
-                            if sub_phrase not in stop_words:
-                                keywords.add(sub_phrase)
-            
-            english_words = re.findall(r'[a-z0-9]+', text.lower())
-            for word in english_words:
-                if len(word) > 1 and word not in stop_words:
-                    keywords.add(word)
-            
-            return keywords
-        
-        expected_keywords = extract_keywords(exp)
-        generated_keywords = extract_keywords(gen)
-        
-        if not expected_keywords:
-            return True
-        
-        matched_keywords = expected_keywords & generated_keywords
-        keyword_match_ratio = len(matched_keywords) / len(expected_keywords)
-        
-        if keyword_match_ratio >= 0.3:
-            return True
-        
-        core_concepts_matched = 0
-        for exp_keyword in expected_keywords:
-            for gen_keyword in generated_keywords:
-                if exp_keyword in gen_keyword or gen_keyword in exp_keyword:
-                    core_concepts_matched += 1
-                    break
-        
-        partial_match_ratio = core_concepts_matched / len(expected_keywords) if expected_keywords else 0
-        
-        return partial_match_ratio >= 0.5
-    
     # eval-mode: oracle的细粒度评估
     def _classify_tables_fine_grained(self, schema: Dict[str, Any]) -> Dict[str, str]:
         """
@@ -1100,11 +1029,6 @@ class Doc2DBEvaluator:
                 result['match'] = True
                 result['match_type'] = 'case_insensitive'
                 result['similarity'] = 1.0
-            elif self._is_descriptive_field_match(exp_str, gen_str):
-                result['match'] = True
-                result['match_type'] = 'keyword_match'
-                result['similarity'] = 0.85
-                result['details']['match_method'] = 'keyword_based'
             
             result['details']['expected_string'] = exp_str
             result['details']['generated_string'] = gen_str
@@ -1733,7 +1657,7 @@ class Doc2DBEvaluator:
                                     table_stats[table_name_lower]['exact_matches'] += 1
                                     if not comparison['details'].get('decimal_precision_match', True):
                                         table_stats[table_name_lower]['numeric_precision_errors'] += 1
-                                elif comparison['match_type'] in ['string_similar', 'case_insensitive', 'keyword_match']:
+                                elif comparison['match_type'] in ['string_similar', 'case_insensitive']:
                                     table_stats[table_name_lower]['string_similarity_matches'] += 1
                                 else:
                                     table_stats[table_name_lower]['exact_matches'] += 1

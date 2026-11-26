@@ -20,9 +20,13 @@ def test_numbers_are_not_read_as_booleans(evaluator):
     assert not evaluator.compare_cell_values(1, 0)["match"]
 
 
-@known("scorer: keyword fallback accepts wrong values")
-def test_keyword_fallback_rejects_different_codes(evaluator):
-    assert not evaluator.compare_cell_values("M", "F")["match"]
+@pytest.mark.parametrize("expected, generated", [
+    ("M", "F"),
+    ("N", "Y"),
+    ("Brno - venkov", "Brno - mesto"),
+])
+def test_keyword_fallback_rejects_different_codes(evaluator, expected, generated):
+    assert not evaluator.compare_cell_values(expected, generated)["match"]   # report 022
 
 
 def test_column_name_case_not_double_counted(evaluator):
