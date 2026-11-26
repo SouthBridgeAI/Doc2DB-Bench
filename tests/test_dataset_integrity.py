@@ -37,11 +37,7 @@ KNOWN_FAILURES = {
         "university/case3",
         "university/case6",
     },
-    "keys_and_not_null": {                       # #19, report 011
-        "medical/case2",
-        "medical/case3",
-        "sports/case3",
-    },
+    "keys_and_not_null": set(),                  # #19, report 011
 }
 
 

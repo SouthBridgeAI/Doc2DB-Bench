@@ -81,7 +81,7 @@
         "name": "Bowling_skill",
         "type": "TEXT",  
         "constraints": {
-          "nullable": false
+          "nullable": true
         },
         "description": "the name of the bowling skill (data format: text)"
       }
