@@ -18,16 +18,13 @@ KNOWN_FAILURES = {
     "table_names": set(),                        # #19, layout
     "columns": {                                 # #19, report 002
     },
-    "foreign_keys": {                            # #19, reports 008 and 009
+    "foreign_keys": {                            # #19, report 008
         "finance/case4",
         "others/case1",
-        "others/case10",
         "others/case2",
-        "others/case7",
         "sports/case2",
         "sports/case3",
         "university/case3",
-        "university/case6",
     },
     "keys_and_not_null": set(),                  # #19, report 011
 }
@@ -120,3 +117,30 @@ def test_ground_truth_respects_primary_key_and_not_null(evaluator, case):
                 if nulls:
                     problems.append(f"{table}.{f['name']}: {nulls} null values in a NOT NULL column")
     assert problems == []
+
+
+@pytest.mark.parametrize("case", CASES)
+def test_foreign_keys_form_no_cycle(case):
+    """A table never depends, through its foreign keys, on itself (self-references excepted)."""
+    edges = {table.lower(): {(f.get("constraints") or {})["foreign_key"]["table"].lower()
+                             for f in fields if (f.get("constraints") or {}).get("foreign_key")} - {table.lower()}
+             for table, fields in schema_tables(case).items()}
+    visiting, done = set(), set()
+
+    def cycle_from(table, path):
+        if table in visiting:
+            return path[path.index(table):] + [table]
+        if table in done:
+            return None
+        visiting.add(table)
+        for target in edges.get(table, ()):
+            found = cycle_from(target, path + [table])
+            if found:
+                return found
+        visiting.discard(table)
+        done.add(table)
+        return None
+
+    cycles = [c for c in (cycle_from(t, []) for t in edges) if c]
+    assert cycles == [], " -> ".join(cycles[0])
+

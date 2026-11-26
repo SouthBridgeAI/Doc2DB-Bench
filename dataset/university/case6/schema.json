@@ -134,11 +134,7 @@
         "type": "INTEGER",
         "constraints": {
           "nullable": true,
-          "primary_key": true,
-          "foreign_key": {
-            "table": "Customer_Payments",
-            "column": "customer_id"
-          }
+          "primary_key": true
         }
       },
       {
@@ -220,7 +216,7 @@
   {
     "id": "4",
     "name": "Customer_Payments",
-    "type": "entity",
+    "type": "relation",
     "fields": [
       {
         "name": "customer_id",

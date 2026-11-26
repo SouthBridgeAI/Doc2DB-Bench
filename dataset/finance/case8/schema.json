@@ -184,11 +184,7 @@
         "type": "INTEGER",
         "constraints": {
           "nullable": true,
-          "primary_key": true,
-          "foreign_key": {
-            "table": "Products_Booked",
-            "column": "product_id"
-          }
+          "primary_key": true
         }
       },
       {
