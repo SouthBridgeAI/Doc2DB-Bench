@@ -1,0 +1,15 @@
+[
+{"course_id": 1, "name": "Machine Learning Theory", "credit": 3, "diff": 3},
+{"course_id": 2, "name": "Intro to Database 1", "credit": 2, "diff": 4},
+{"course_id": 3, "name": "Intro to Database 2", "credit": 2, "diff": 1},
+{"course_id": 4, "name": "Natural Language Processing", "credit": 3, "diff": 3},
+{"course_id": 5, "name": "Intro to BlockChain", "credit": 3, "diff": 5},
+{"course_id": 6, "name": "Computer Network", "credit": 2, "diff": 1},
+{"course_id": 7, "name": "Computer Vision", "credit": 3, "diff": 1},
+{"course_id": 8, "name": "Advanced Operating System", "credit": 3, "diff": 5},
+{"course_id": 9, "name": "C for Programmers", "credit": 2, "diff": 4},
+{"course_id": 10, "name": "Data Structure and Algorithms", "credit": 2, "diff": 4},
+{"course_id": 11, "name": "Advanced Database Systems", "credit": 2, "diff": 2},
+{"course_id": 12, "name": "Applied Deep Learning ", "credit": 3, "diff": 3},
+{"course_id": 13, "name": "Statistical learning", "credit": 3, "diff": 2}
+]
