@@ -20,13 +20,41 @@ KNOWN_FAILURES = {
     },
     "foreign_keys": {                            # #19, report 008
         "finance/case4",
-        "others/case1",
         "others/case2",
         "sports/case2",
         "sports/case3",
-        "university/case3",
     },
     "keys_and_not_null": set(),                  # #19, report 011
+}
+
+
+# Foreign-key values the documents state explicitly but never describe (no row exists for them).
+# A careful reader writes exactly these values, so they stay in the ground truth (#19, report 008).
+STATED_BUT_UNDESCRIBED = {
+    "others/case1": {
+        "twitter.LocationID": {2619},
+    },
+    "others/case2": {
+        "inventory.film_id": {
+            73, 125, 152, 227, 295, 308, 353, 373, 382, 435, 465, 544, 588, 591, 593, 651, 665, 730,
+            745, 777, 816, 869, 891, 904, 906, 1000
+        },
+    },
+    "sports/case2": {
+        "games_competitor.person_id": {
+            1048, 3433, 11223, 16600, 18821, 20097, 20429, 21673, 25225, 25921, 30248, 30620, 33305,
+            35504, 38349, 43571, 44366, 49049, 49713, 56004, 56617, 60897, 61000, 68856, 69506,
+            70856, 71345, 72715, 79565, 79971, 80393, 82533, 83187, 85715, 88887, 90611, 93641,
+            94000, 98248, 98983, 103339, 109131, 121292, 124200, 128094, 130858, 132096, 133086,
+            133941
+        },
+    },
+    "sports/case3": {
+        "Match.Man_of_the_Match": {187},
+    },
+    "university/case3": {
+        "CLASS.PROF_NUM": {101},
+    },
 }
 
 
@@ -84,8 +112,9 @@ def test_ground_truth_foreign_keys_point_to_existing_rows(evaluator, case):
             if not fk or table.lower() not in gt or fk["table"].lower() not in gt:
                 continue
             targets = {str(r.get(fk["column"])) for r in gt[fk["table"].lower()]}
+            allowed = {str(v) for v in STATED_BUT_UNDESCRIBED.get(case, {}).get(f"{table}.{field['name']}", ())}
             missing = [r[field["name"]] for r in gt[table.lower()]
-                       if r.get(field["name"]) is not None and str(r[field["name"]]) not in targets]
+                       if r.get(field["name"]) is not None and str(r[field["name"]]) not in targets | allowed]
             if missing:
                 dangling[f"{table}.{field['name']} -> {fk['table']}.{fk['column']}"] = len(missing)
     assert dangling == {}
