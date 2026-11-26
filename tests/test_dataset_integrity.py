@@ -17,7 +17,6 @@ KNOWN_FAILURES = {
     "layout": set(),                             # #19, layout
     "table_names": set(),                        # #19, layout
     "columns": {                                 # #19, report 002
-        "others/case5",
     },
     "foreign_keys": {                            # #19, reports 008 and 009
         "finance/case4",
