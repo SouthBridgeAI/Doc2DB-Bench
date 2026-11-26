@@ -78,6 +78,12 @@ This step usually produces:
 - `*_evaluate.json`
 - optional Excel summary reports
 
+### Data and output folders
+
+Every script reads the cases from `dataset/` (`dataset/<domain>/<case>/`) and writes to `outputs/<method>/` at the repository root, for example `outputs/llm/` for `llm_evaluate_cascade.py` and `test_dataset_evaluate.py`. `outputs/` is git-ignored. Use `--dataset-dir` and `--output-dir` to point elsewhere; to evaluate another method's outputs, pass its folder, for example `python test_dataset_evaluate.py --evaluate-all-methods --output-dir ../outputs/docetl`.
+
+A run exits with status 1 when it finds no case, or when any case fails or has no output, so a batch script or CI job can tell that nothing was scored.
+
 ### 3. Use `result.ipynb` for fine-grained analysis
 
 After evaluation finishes, use [result.ipynb](./result.ipynb) to inspect and organize results.

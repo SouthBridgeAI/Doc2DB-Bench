@@ -30,6 +30,7 @@ from utils import (
     load_best_snapshots_from_file as util_load_best_snapshots_from_file,
     extract_tables_from_full_result as util_extract_tables_from_full_result,
     save_output as util_save_output,
+    exit_code,
 )
 env_path = Path(__file__).parent.parent/ "llm" / ".env"
 config = dotenv_values(env_path)
@@ -50,9 +51,8 @@ def get_client() -> OpenAI:
 logger = logging.getLogger(__name__)
 
 BACKEND_URL = "http://localhost:5000"
-DATASET_DIR = Path(__file__).parent.parent / "dataset/case/base_latest"
-# OUTPUT_DIR = Path(__file__).parent.parent / "dataset/case/base_latest_output/docetl"
-OUTPUT_DIR = Path(__file__).parent.parent / "dataset/case/base_latest_output/llm"
+DATASET_DIR = Path(__file__).parent.parent / "dataset"
+OUTPUT_DIR = Path(__file__).parent.parent / "outputs" / "llm"
 POLL_INTERVAL = 2
 MAX_WAIT_TIME = 7200
 
@@ -2586,6 +2586,10 @@ Now begin the evaluation:
         
         if not to_evaluate:
             logger.info("所有输出都已评估！")
+            self.results.extend(
+                {'case_id': f"{m['db_name']}/{m['case_name']}", 'status': 'skipped'}
+                for m in all_method_outputs
+            )
             return
         
         logger.info(f" 待评估: {len(to_evaluate)} 个方法输出\n")
@@ -3583,7 +3587,7 @@ def main():
     parser.add_argument('--excel-output', type=str,  default=None,
                         help='Excel输出文件路径（可选，默认自动生成在output目录）')
     parser.add_argument('--db-name', type=str, default=None,
-                        help='只处理该数据库目录名（与 dataset/case/base 下文件夹名一致，默认处理全部）')
+                        help='只处理该数据库目录名（与 dataset 下的 domain 文件夹名一致，如 medical，默认处理全部）')
     parser.add_argument('--case-name', type=str, default=None,
                         help='只处理该 case 文件夹名（如 case1，默认处理全部）')
     parser.add_argument(
@@ -3600,6 +3604,10 @@ def main():
     parser.add_argument('--evaluate-entity-pk', action='store_true',
                         help='是否在评估时将实体表的主键计入得分（默认: False，即自动跳过无业务含义的实体表主键）')
     
+    parser.add_argument('--dataset-dir', type=str, default=str(DATASET_DIR),
+                        help=f'Dataset folder containing <domain>/<case>/ (default: {DATASET_DIR})')
+    parser.add_argument('--output-dir', type=str, default=str(OUTPUT_DIR),
+                        help=f'Folder for outputs and evaluation files (default: {OUTPUT_DIR})')
     args = parser.parse_args()
     
     print("\n" + "="*80)
@@ -3612,8 +3620,8 @@ def main():
         
         evaluator = Doc2DBEvaluator(
             backend_url=args.backend_url,
-            dataset_dir=DATASET_DIR,
-            output_dir=OUTPUT_DIR,
+            dataset_dir=Path(args.dataset_dir),
+            output_dir=Path(args.output_dir),
             model=args.model,
             run_name=args.run_name,
             document_mode=args.document_mode,
@@ -3627,12 +3635,15 @@ def main():
                 print(f"\n Excel报告生成完成: {excel_file}")
             else:
                 print("\nExcel报告生成失败")
+                sys.exit(1)
         except KeyboardInterrupt:
             print("\n\n操作被用户中断")
+            sys.exit(130)
         except Exception as e:
             print(f"\n\n 生成Excel报告出错: {e}")
             import traceback
             traceback.print_exc()
+            sys.exit(1)
         
         return
     
@@ -3656,8 +3667,8 @@ def main():
     
     evaluator = Doc2DBEvaluator(
         backend_url=args.backend_url,
-        dataset_dir=DATASET_DIR,
-        output_dir=OUTPUT_DIR,
+        dataset_dir=Path(args.dataset_dir),
+        output_dir=Path(args.output_dir),
         model=args.model,
         run_name=args.run_name,
         document_mode=args.document_mode,  # 传递文档模式参数
@@ -3677,10 +3688,13 @@ def main():
             evaluator.run_evaluation()
     except KeyboardInterrupt:
         print("\n\n评估被用户中断")
+        sys.exit(130)
     except Exception as e:
         print(f"\n\n 评估过程出错: {e}")
         import traceback
         traceback.print_exc()
+        sys.exit(1)
+    sys.exit(exit_code(evaluator.results))
 
 
 if __name__ == "__main__":

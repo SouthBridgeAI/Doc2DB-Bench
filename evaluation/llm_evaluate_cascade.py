@@ -23,6 +23,7 @@ sys.path.insert(0, project_root)
 from utils import token_length
 from dotenv import dotenv_values
 from utils import _clean_response
+from utils import exit_code
 env_path = Path(__file__).parent.parent/ "llm" / ".env"
 config = dotenv_values(env_path)
 DEFAULT_API_URL = config.get("GPT_URL_PRO")
@@ -76,8 +77,8 @@ logger = logging.getLogger(__name__)
 
 # 配置参数
 # 现在所有文件都在evaluate文件夹里，需要指向上一级目录
-DATASET_DIR = Path(__file__).parent.parent / "dataset/case/base_latest"
-OUTPUT_DIR = Path(__file__).parent.parent / "dataset/case/base_latest_output/llm"
+DATASET_DIR = Path(__file__).parent.parent / "dataset"
+OUTPUT_DIR = Path(__file__).parent.parent / "outputs" / "llm"
 DEFAULT_MODEL = "gpt-4o" #claude-3-5-sonnet-20240620, gpt-4o, qwen-turbo,qwen2.5-14b-instruct
 DEFAULT_CHUNK_SIZE = 500000  # 默认chunk大小（字符数）1000000
 # DEFAULT_CHUNK_SIZE = 10000000  # 默认chunk大小（字符数）
@@ -2927,6 +2928,10 @@ def main():
                         help='开源模型(ours后端)端口号；仅当模型走 llm/ours.py 时生效')
     parser.add_argument('--single', action='store_true', help='在 Pipeline 模式下，将所有实体表打包在一次 Prompt 中提取')
     
+    parser.add_argument('--dataset-dir', type=str, default=str(DATASET_DIR),
+                        help=f'Dataset folder containing <domain>/<case>/ (default: {DATASET_DIR})')
+    parser.add_argument('--output-dir', type=str, default=str(OUTPUT_DIR),
+                        help=f'Folder for outputs and evaluation files (default: {OUTPUT_DIR})')
     args = parser.parse_args()
     
     eval_mode_desc_map = {
@@ -2968,6 +2973,8 @@ def main():
     
     # 创建评估器
     evaluator = LLMExtractorEvaluator(
+        dataset_dir=Path(args.dataset_dir),
+        output_dir=Path(args.output_dir),
         model=args.model,
         run_name=args.run_name,
         chunk_size=args.chunk_size,
@@ -2985,10 +2992,13 @@ def main():
         evaluator.run_evaluation()
     except KeyboardInterrupt:
         print("\n\n⚠️  评估被用户中断")
+        sys.exit(130)
     except Exception as e:
         print(f"\n\n❌ 评估过程出错: {e}")
         import traceback
         traceback.print_exc()
+        sys.exit(1)
+    sys.exit(exit_code(evaluator.results))
 
 
 if __name__ == "__main__":

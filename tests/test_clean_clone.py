@@ -4,7 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 CLEAN_ENV = {k: v for k, v in os.environ.items() if not k.startswith(("OPENAI_", "GPT_"))}
@@ -25,7 +24,6 @@ def test_cascade_baseline_imports_without_api_key():
     assert r.returncode == 0, r.stderr
 
 
-@pytest.mark.xfail(strict=True, reason="#3: scripts read dataset/case/base_latest")
 def test_evaluator_finds_the_shipped_dataset(tmp_path):
     r = run_python(
         "import test_dataset_evaluate as T, pathlib; "
@@ -36,7 +34,15 @@ def test_evaluator_finds_the_shipped_dataset(tmp_path):
     assert r.stdout.strip().splitlines()[-1] == "42"
 
 
-@pytest.mark.xfail(strict=True, reason="#3: no --dataset-dir option, and exit 0 when no case is found")
+def test_exit_code_fails_unless_every_case_ran():
+    from utils import exit_code
+
+    assert exit_code([]) == 1
+    assert exit_code([{"status": "success"}, {"status": "skipped"}]) == 0
+    assert exit_code([{"status": "success"}, {"status": "failed"}]) == 1
+    assert exit_code([{"status": "success"}, {"status": "no_output"}]) == 1
+
+
 def test_evaluator_exits_nonzero_when_it_finds_no_cases(tmp_path):
     script = [sys.executable, "test_dataset_evaluate.py"]
     help_text = subprocess.run(script + ["--help"], cwd=ROOT / "evaluation", env=CLEAN_ENV,
