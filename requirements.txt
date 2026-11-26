@@ -1,0 +1,8 @@
+openai>=1.0
+python-dotenv
+pandas
+requests
+tiktoken
+networkx
+openpyxl
+pydantic>=2.7
