@@ -61,3 +61,15 @@ def test_oracle_modes_read_the_ground_truth(tmp_path, monkeypatch, eval_mode):
     assert result["status"] == "failed"
     assert "ground truth read" in result["error"]
 
+
+
+def test_pipeline_prompt_says_how_to_number_records_the_documents_do_not_identify(tmp_path, monkeypatch):
+    _, prompts, _ = run_case(tmp_path, monkeypatch, "pipeline")
+    assert all("number the records 1, 2, 3" in p for p in prompts)
+
+
+def test_pipeline_shows_every_row_of_the_models_own_reference_tables(cascade):
+    cascade.eval_mode = "pipeline"
+    rows = [{"id": n, "name": f"person {n}"} for n in range(1, 182)]
+    prompt = cascade._build_reference_tables_prompt({"Person": rows}, {})
+    assert "| 181 | person 181 |" in prompt

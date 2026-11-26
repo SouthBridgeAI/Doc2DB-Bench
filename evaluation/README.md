@@ -173,13 +173,27 @@ python test_dataset_evaluate.py --generate-excel --excel-output ./report.xlsx
 
 | Mode | The model sees | Use it for |
 |---|---|---|
-| `pipeline` (default) | The documents and the schema only. Tables that refer to other tables are given the model's own earlier extractions, cut to the first 50 rows. The ground truth is never read before scoring. | **Evaluating a system, and comparing with others.** Recommended for third-party users. |
+| `pipeline` (default) | The documents and the schema only. Tables that refer to other tables are given the model's own earlier extractions, in full. The prompt says how to number records the documents do not identify. The ground truth is never read before scoring. | **Evaluating a system, and comparing with others.** Recommended for third-party users. |
 | `pipeline-oracle` | Its own extractions for entity tables. For each relationship table, the referenced ground-truth entity tables, identifiers included, cut to the first 50 rows. | Analysis: relationship extraction with correct entity context. The published leaderboard uses this mode. |
 | `oracle` | Ground-truth rows in place of every entity table that has no foreign key, and ground-truth reference tables for the others. | Analysis: an upper bound on relationship extraction. |
 
 Each output's `metadata.json` records the mode it was produced in, and whether it used the ground truth (`"uses_ground_truth"`). Scores from different modes are not comparable. Report the mode next to every number.
 
 The DocETL, LangChain and LangExtract baselines have no modes. They read the ground truth only to score their output after extraction.
+
+### How identifiers are scored
+
+Most primary keys in the dataset are surrogate IDs that no document states. A system can't extract them, only invent them. What it can get right is which records they connect: which patient an appointment is for, which physician belongs to which department.
+
+So by default, `test_dataset_evaluate.py` scores those identifiers **up to a consistent renaming**:
+
+1. For each table whose primary key is a single column, isn't a foreign key, and isn't stated in the documents (`meta.json` `if_primary_allowed`), the system's rows are paired one-to-one with ground-truth rows on their other columns.
+2. Each of the system's IDs is renamed to the ID of the row it paired with, in that column and in every foreign key that points to it.
+3. The cells are then scored as usual.
+
+A system that numbers its records 1, 2, 3… and uses each number consistently can reach 100. A foreign key that links the wrong record is still wrong. An ID that pairs with no ground-truth row matches nothing. IDs the documents do state are scored exactly as written. This happens after extraction, on the scorer's side, so the model never sees the ground truth.
+
+`--literal-keys` turns this off and scores every identifier as a literal value, as the published leaderboard did. Each `*_evaluate.json` records which rule was used (`"key_matching": "aligned"` or `"literal"`).
 
 ## Baseline Usage
 

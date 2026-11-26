@@ -1379,8 +1379,9 @@ Please return the Markdown tables in the format specified. Remember to wrap EVER
                 prompt_parts.append(header)
                 prompt_parts.append(separator)
                 
-                # 数据行（限制显示前50行）
-                max_rows = min(50, len(table_data))
+                # 数据行：pipeline 模式下参考表是模型自己的抽取结果，全部显示，否则后面的行无法被引用；
+                # oracle 模式保持原来的前 50 行
+                max_rows = len(table_data) if self.eval_mode == "pipeline" else min(50, len(table_data))
                 for row in table_data[:max_rows]:
                     values = [str(row.get(f, '')) for f in fields]
                     data_row = "  | " + " | ".join(values) + " |"
@@ -1892,6 +1893,13 @@ Please return the Markdown table result. Remember to use ID values from referenc
         schema_parts.append(f"- Values must comply with domain constraints if specified")
         schema_parts.append(f"- Follow format patterns exactly as defined")
         schema_parts.append(f"- Respect min/max value constraints")
+        if self.eval_mode == "pipeline":
+            # Most identifiers are not in the documents; the scorer accepts any consistent numbering.
+            schema_parts.append(
+                "- PRIMARY KEY and FOREIGN KEY fields: use the identifier the documents state. If they state none, "
+                "assign your own: number the records 1, 2, 3, ... in order of first mention, and use the same "
+                "number wherever that record is referred to"
+            )
         
         return "\n".join(schema_parts)
     
