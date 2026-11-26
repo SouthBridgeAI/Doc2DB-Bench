@@ -299,19 +299,67 @@ the final result is normalized as much as possible into:
 }
 ```
 
+## How cells are matched
+
+`test_dataset_evaluate.py` compares each predicted cell with the ground-truth cell in the same column of the paired row. These are the rules on `main`. They differ from the description in the paper (§5.1, Appendix C.1) and from the scorer that produced the published leaderboard; see #8 for each change.
+
+### Pairing tables, columns and rows
+
+- **Tables** are matched by name, ignoring case and a trailing `s` (`Patients` = `Patient`).
+- **Columns** are matched by name, ignoring case. Each column is counted once.
+- **Identifiers the documents never state** are renamed to the ground truth's before anything is compared, so any consistent numbering scores as correct. See [How identifiers are scored](#how-identifiers-are-scored).
+- **Rows** are paired one-to-one by maximum-weight matching on row similarity (the average similarity of the shared columns). A pair with similarity below 0.3 is never used. Every cell of an unpaired ground-truth row is missed, and every cell of an unpaired predicted row counts as an extra generated cell.
+
+### Comparing two values
+
+The first rule that applies decides:
+
+1. **Empty.** `null`, `""` and whitespace-only strings are empty. Two empty values match; an empty and a non-empty value don't.
+2. **Booleans.** If either value is a boolean (`true`/`false`, or the strings `true`, `false`, `yes`, `no`, `是`, `否` in any case), both are read as booleans, `1` and `0` included. They match if they are the same truth value.
+3. **Numbers.** If either value is a number, or a string that parses as one (thousands separators allowed), the prediction is rounded to as many decimals as the ground-truth value has (trailing zeros ignored), then compared. A number never matches non-numeric text.
+4. **Text.** Whitespace is collapsed. Two values match if they are equal ignoring case, or if their edit-distance similarity (1 − Levenshtein distance ÷ length of the longer value, ignoring case) is at least 0.9, or 0.85 when either contains Chinese.
+   - The original scorer's entity-abbreviation rule is still in place and also counts as a match. It applies when one value, with spaces removed and at least 4 characters long, appears inside the other (Chinese company suffixes such as `有限公司` are ignored); when both name the same year and quarter; or when they share at least half of their Chinese words of 3 or more characters. So `Smith` matches `Smithson`.
+5. **Dates.** When neither value is plain text, both are parsed as dates or datetimes and compared at the ground truth's precision: date only, minute, or second. A prediction without a time never matches a ground truth that has one. The formats read are `Y-M-D` and `Y/M/D`; `M/D/Y`, read month first; any of those followed by `HH:MM` or `HH:MM:SS` after a `T` or a space, with an optional `UTC` or `Z`; and `23 July 1992`. Values that don't parse are compared as text with `-`, `/` and spaces unified.
+
+Examples, checked against the scorer by `tests/test_readme.py`:
+
+<!-- matching-examples:start -->
+| Ground truth | Prediction | Match |
+|---|---|---|
+| `null` | `" "` | yes |
+| `"TRUE"` | `true` | yes |
+| `0` | `false` | yes |
+| `1.70` | `1.7018` | yes |
+| `1.7018` | `1.7` | no |
+| `5` | `5.4` | yes |
+| `"2008-04-24 10:00"` | `"2008-04-24T10:00:00"` | yes |
+| `"1981-8-1"` | `"1981-08-01"` | yes |
+| `"2008-04-24"` | `"2008-04-25"` | no |
+| `"Ann Lee"` | `"ann lee"` | yes |
+| `"Colour"` | `"Color"` | no |
+| `"Smith"` | `"Smithson"` | yes |
+| `"M"` | `"F"` | no |
+<!-- matching-examples:end -->
+
+### Counting
+
+- **Expected cells:** every column present in a ground-truth row, including empty ones.
+- **Generated cells:** every column present in a predicted row.
+- **Correct cells:** cells that match under the rules above. A cell empty in the ground truth counts as correct only when the prediction has that column and leaves it empty. (The paper defines these totals over non-empty cells only; that change is #17.)
+- **Not scored:** primary keys of entity tables that the documents don't state (`meta.json` `if_primary_allowed`). `--evaluate-entity-pk` scores them where `meta.json` doesn't say.
+- **Precision, recall and F1:** precision = correct ÷ generated, recall = correct ÷ expected, F1 = their harmonic mean.
+
 ## Evaluation Metrics
 
 ### 1. Cell-level Metrics
 
-- `Cell Recall`
-- `Cell Precision`
-- `Cell F1`
+- `Cell Recall`, `Cell Precision`, `Cell F1`: over all tables of a case, counted as in [How cells are matched](#how-cells-are-matched).
+- `Entity F1` and `Relation F1`: the same, restricted to the tables the schema types as `entity` or `relation`. A table with no type counts as an entity.
 
 ### 2. Structure-level Metrics
 
-- `Table Recall / Precision`
-- `Field Recall / Precision`
-- `Entity / Relation F1`
+- `Table Recall / Precision`: which tables were produced.
+- `Field Recall / Precision`: which column names were produced, compared exactly, case included.
 
 ### 3. LLM Fine-grained Scoring
 

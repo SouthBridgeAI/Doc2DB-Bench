@@ -23,3 +23,16 @@ def test_readme_repository_tree_matches_the_repository():
         if not (ROOT.joinpath(*stack)).exists():
             missing.append("/".join(stack))
     assert missing == []
+
+
+def test_matching_examples_in_the_evaluation_readme_hold(evaluator):
+    """The examples table in evaluation/README.md agrees with the scorer."""
+    import json
+
+    text = (ROOT / "evaluation" / "README.md").read_text(encoding="utf-8")
+    block = re.search(r"<!-- matching-examples:start -->(.*?)<!-- matching-examples:end -->", text, re.S).group(1)
+    rows = re.findall(r"^\| `(.+?)` \| `(.+?)` \| (yes|no) \|$", block, re.M)
+    assert len(rows) >= 10
+    for expected, generated, match in rows:
+        result = evaluator.compare_cell_values(json.loads(expected), json.loads(generated))["match"]
+        assert result is (match == "yes"), (expected, generated)
