@@ -43,7 +43,6 @@ def test_time_with_seconds_matches(evaluator):
     assert evaluator.compare_cell_values("2008-04-24 10:00", "2008-04-24 10:00:00")["match"]
 
 
-@known("scorer: empty cells counted, contrary to the paper's non-empty definition")
 def test_null_cells_not_counted(evaluator):
     m = evaluator.calculate_cell_metrics(
         {"T": [{"id": 1, "x": "a"}]},

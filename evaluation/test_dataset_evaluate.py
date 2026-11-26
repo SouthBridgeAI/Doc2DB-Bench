@@ -1563,7 +1563,7 @@ class Doc2DBEvaluator:
                                 ):
                                     skipped_id_fields.add(f"{table_name}.{attr}")
                                     continue
-                                if value is not None and value != "":
+                                if self.get_value_type(value) != "null":
                                     table_stats[table_name_lower]['expected_cells'] += 1
                     continue
                 
@@ -1659,13 +1659,15 @@ class Doc2DBEvaluator:
                                     generated_val = gen_val
                                     break
                         
-                        if field in expected_row:
+                        # Only non-empty cells count (as in the paper); a cell empty on both sides is skipped.
+                        expected_present = self.get_value_type(expected_val) != "null"
+                        generated_present = self.get_value_type(generated_val) != "null"
+                        if expected_present:
                             table_stats[table_name_lower]['expected_cells'] += 1
-                        
-                        if generated_row and field_lower in [f.lower() for f in generated_row.keys()]:
+                        if generated_present:
                             table_stats[table_name_lower]['generated_cells'] += 1
                         
-                        if (expected_val is not None and expected_val != "") or (generated_val is not None and generated_val != ""):
+                        if expected_present or generated_present:
                             comparison = self.compare_cell_values(expected_val, generated_val)
                             comparison['table'] = table_name_lower
                             comparison['row_index'] = exp_row_idx
@@ -1692,11 +1694,6 @@ class Doc2DBEvaluator:
                                     is_storage_mismatch = comparison['details'].get('storage_type_mismatch', False)
                                     if not is_storage_mismatch:
                                         table_stats[table_name_lower]['type_mismatches'] += 1
-                        elif (expected_val is None or expected_val == "") and (generated_val is None or generated_val == ""):
-                            field_in_expected = field in expected_row
-                            field_in_generated = generated_row and field_lower in [f.lower() for f in generated_row.keys()]
-                            if field_in_expected and field_in_generated:
-                                table_stats[table_name_lower]['correct_cells'] += 1
                 
                 for gen_idx, gen_row in enumerate(generated_rows):
                     if gen_idx not in used_generated_indices and isinstance(gen_row, dict):
@@ -1710,7 +1707,8 @@ class Doc2DBEvaluator:
                             ):
                                 skipped_id_fields.add(f"{table_name}.{field}")
                                 continue
-                            table_stats[table_name_lower]['generated_cells'] += 1
+                            if self.get_value_type(gen_row[field]) != "null":
+                                table_stats[table_name_lower]['generated_cells'] += 1
             
             total_expected = sum(stats['expected_cells'] for stats in table_stats.values())
             total_generated = sum(stats['generated_cells'] for stats in table_stats.values())
@@ -1936,7 +1934,7 @@ class Doc2DBEvaluator:
                                 ):
                                     skipped_id_fields.add(f"{table_name}.{attr}")
                                     continue
-                                if value is not None and value != "":
+                                if self.get_value_type(value) != "null":
                                     stats['expected_cells'] += 1
                     continue
                 
@@ -2008,19 +2006,17 @@ class Doc2DBEvaluator:
                                     generated_val = gen_val
                                     break
                         
-                        if field in exp_row:
+                        # Only non-empty cells count; a cell empty on both sides is skipped.
+                        expected_present = self.get_value_type(expected_val) != "null"
+                        generated_present = self.get_value_type(generated_val) != "null"
+                        if expected_present:
                             stats['expected_cells'] += 1
-                        if generated_row and field_lower in [f.lower() for f in generated_row.keys()]:
+                        if generated_present:
                             stats['generated_cells'] += 1
                         
-                        if (expected_val is not None and expected_val != "") or (generated_val is not None and generated_val != ""):
+                        if expected_present or generated_present:
                             comparison = self.compare_cell_values(expected_val, generated_val)
                             if comparison['match']:
-                                stats['correct_cells'] += 1
-                        elif (expected_val is None or expected_val == "") and (generated_val is None or generated_val == ""):
-                            field_in_expected = field in exp_row
-                            field_in_generated = generated_row and field_lower in [f.lower() for f in generated_row.keys()]
-                            if field_in_expected and field_in_generated:
                                 stats['correct_cells'] += 1
                 
                 # 统计幻觉数据
@@ -2035,7 +2031,8 @@ class Doc2DBEvaluator:
                             ):
                                 skipped_id_fields.add(f"{table_name}.{field}")
                                 continue
-                            stats['generated_cells'] += 1
+                            if self.get_value_type(gen_row[field]) != "null":
+                                stats['generated_cells'] += 1
             
             # 计算最终分数
             entity_recall = (entity_stats['correct_cells'] / entity_stats['expected_cells'] * 100) if entity_stats['expected_cells'] > 0 else 0
