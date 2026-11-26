@@ -6,11 +6,17 @@ import random
 import logging
 from pathlib import Path
 from typing import TypedDict, List, Dict, Any, Optional
+from functools import lru_cache
 import tiktoken
-encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+
+
+@lru_cache(maxsize=None)
+def _encoding():
+    return tiktoken.encoding_for_model("gpt-3.5-turbo")
+
 
 def token_length(text):
-    return len(encoding.encode(text, disallowed_special=()))
+    return len(_encoding().encode(text, disallowed_special=()))
 
 def read_json(path):
     if not os.path.exists(path):

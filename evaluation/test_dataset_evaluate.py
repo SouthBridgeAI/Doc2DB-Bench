@@ -10,7 +10,6 @@ import json
 import time
 import glob
 import shutil
-from pandas.core.series import com
 import requests
 import logging
 from pathlib import Path
@@ -37,10 +36,15 @@ config = dotenv_values(env_path)
 api_url = config.get("GPT_URL_PRO")
 api_key = config.get("GPT_KEY_PRO")
 
-client = OpenAI(
-    api_key=api_key,
-    base_url=api_url
-)
+_client: Optional[OpenAI] = None
+
+
+def get_client() -> OpenAI:
+    """Build the OpenAI client on first use, so importing this module needs no key."""
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=api_key, base_url=api_url)
+    return _client
 
 
 logger = logging.getLogger(__name__)
@@ -1994,7 +1998,7 @@ Now begin the evaluation:
             
             logger.info(f"   使用 gpt-4o 模型进行精细化评估")
             
-            completion = client.chat.completions.create(
+            completion = get_client().chat.completions.create(
                 model=DEFAULT_MODEL,
                 temperature=0.0,
                 messages=[

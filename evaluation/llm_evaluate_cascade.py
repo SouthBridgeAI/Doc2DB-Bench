@@ -59,7 +59,6 @@ def _get_client_for_model(model_name: Optional[str]) -> OpenAI:
     return _client_cache[cache_key]
 
 # 导入 LLM 调用接口
-from llm.ours import get_answer as ours_get_answer
 from llm.dashscope import get_answer as dashscope_get_answer
 
 # 导入 BAML 客户端（用于评估）
@@ -183,6 +182,14 @@ class LLMExtractorEvaluator:
             )
 
         if self._use_ours_backend(target_model):
+            # llm/ours.py is not in the repository, so import it only for the models routed to it.
+            try:
+                from llm.ours import get_answer as ours_get_answer
+            except ImportError as e:
+                raise ImportError(
+                    f"Model '{target_model}' is routed to llm/ours.py, which is not in this repository. "
+                    "Add that module, or choose a model served through the OpenAI-compatible API."
+                ) from e
             return ours_get_answer(
                 user_prompt,
                 system_prompt=system_prompt,
