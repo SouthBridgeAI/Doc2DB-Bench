@@ -1616,14 +1616,15 @@ class Doc2DBEvaluator:
                     else:
                         generated_row = {}  # 没有分配到，注定触发 missing_attribute
                     
-                    all_fields = set()
-                    if isinstance(expected_row, dict):
-                        all_fields.update(expected_row.keys())
+                    # One entry per column name ignoring case, spelt as in the expected row when it has it,
+                    # so "Name" in the generated row and "name" in the expected row are one cell, not two.
+                    all_fields = {}
                     if isinstance(generated_row, dict):
-                        all_fields.update(generated_row.keys())
+                        all_fields.update((f.lower(), f) for f in generated_row.keys())
+                    if isinstance(expected_row, dict):
+                        all_fields.update((f.lower(), f) for f in expected_row.keys())
                     
-                    for field in all_fields:
-                        field_lower = field.lower()
+                    for field_lower, field in all_fields.items():
                         
                         # 检查是否是实体表的主键ID字段（只跳过实体表的主键，关系表的主键不跳过）
                         if table_type == 'entity' and self._should_skip_entity_pk_field(
@@ -1961,14 +1962,15 @@ class Doc2DBEvaluator:
                     else:
                         generated_row = {}
                     
-                    all_fields = set()
-                    if isinstance(exp_row, dict):
-                        all_fields.update(exp_row.keys())
+                    # One entry per column name ignoring case, spelt as in the expected row when it has it,
+                    # so "Name" in the generated row and "name" in the expected row are one cell, not two.
+                    all_fields = {}
                     if isinstance(generated_row, dict):
-                        all_fields.update(generated_row.keys())
+                        all_fields.update((f.lower(), f) for f in generated_row.keys())
+                    if isinstance(exp_row, dict):
+                        all_fields.update((f.lower(), f) for f in exp_row.keys())
                     
-                    for field in all_fields:
-                        field_lower = field.lower()
+                    for field_lower, field in all_fields.items():
                         
                         # 检查是否是实体表的主键ID字段
                         if table_type == 'entity' and self._should_skip_entity_pk_field(
