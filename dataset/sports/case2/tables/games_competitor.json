@@ -57,7 +57,7 @@
 {"id": 26354, "games_id": 36, "person_id": 20097, "age": 21},
 {"id": 26807, "games_id": 16, "person_id": 20429, "age": 28},
 {"id": 28403, "games_id": 21, "person_id": 21673, "age": 26},
-{"id": 30633, "games_id": 17, "person_id": 23375, "age": 30},
+{"id": 30633, "games_id": 17, "person_id": null, "age": 30},
 {"id": 33067, "games_id": 36, "person_id": 25225, "age": 24},
 {"id": 34005, "games_id": 15, "person_id": 25921, "age": 19},
 {"id": 39734, "games_id": 2, "person_id": 30248, "age": 25},
