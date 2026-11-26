@@ -625,70 +625,6 @@ class Doc2DBEvaluator:
         text = re.sub(r'\s+', ' ', text)
         return text
     
-    def _is_chinese_entity_match(self, str1: str, str2: str) -> bool:
-        """Check if two strings match as Chinese entity abbreviations"""
-        if not str1 or not str2:
-            return False
-        
-        import re
-        
-        s1_no_space = re.sub(r'\s+', '', str1)
-        s2_no_space = re.sub(r'\s+', '', str2)
-        
-        if len(s1_no_space) >= 4 and s1_no_space in s2_no_space:
-            company_suffixes = ['股份有限公司', '有限公司', '公司', '集团', '股份', '(集团)', '（集团）']
-            s2_core = s2_no_space
-            for suffix in company_suffixes:
-                s2_core = s2_core.replace(suffix, '')
-            if s1_no_space in s2_core or s2_core in s1_no_space:
-                return True
-                
-        if len(s2_no_space) >= 4 and s2_no_space in s1_no_space:
-            company_suffixes = ['股份有限公司', '有限公司', '公司', '集团', '股份', '(集团)', '（集团）']
-            s1_core = s1_no_space
-            for suffix in company_suffixes:
-                s1_core = s1_core.replace(suffix, '')
-            if s2_no_space in s1_core or s1_core in s2_no_space:
-                return True
-        
-        year_pattern = r'20\d{2}'
-        quarter_patterns = {
-            'Q1': ['q1', '一季度', '第一季度', '1季度'],
-            'Q2': ['q2', '二季度', '第二季度', '2季度'],
-            'Q3': ['q3', '三季度', '第三季度', '3季度'],
-            'Q4': ['q4', '四季度', '第四季度', '4季度'],
-        }
-        
-        year1_match = re.search(year_pattern, str1)
-        year2_match = re.search(year_pattern, str2)
-        
-        if year1_match and year2_match:
-            year1 = year1_match.group()
-            year2 = year2_match.group()
-            
-            if year1 == year2:
-                str1_lower = str1.lower()
-                str2_lower = str2.lower()
-                
-                for quarter, patterns in quarter_patterns.items():
-                    found_in_s1 = quarter.lower() in str1_lower or any(p in str1_lower for p in patterns)
-                    found_in_s2 = quarter.lower() in str2_lower or any(p in str2_lower for p in patterns)
-                    
-                    if found_in_s1 and found_in_s2:
-                        return True
-        
-        chinese_words_1 = set(re.findall(r'[\u4e00-\u9fa5]{3,}', s1_no_space))
-        chinese_words_2 = set(re.findall(r'[\u4e00-\u9fa5]{3,}', s2_no_space))
-        
-        if chinese_words_1 and chinese_words_2:
-            common_words = chinese_words_1 & chinese_words_2
-            if common_words:
-                min_words_count = min(len(chinese_words_1), len(chinese_words_2))
-                if len(common_words) / min_words_count >= 0.5:
-                    return True
-        
-        return False
-    
     def calculate_string_similarity(self, str1: str, str2: str) -> float:
         """计算字符串相似度（使用编辑距离）"""
         if str1 == str2:
@@ -699,9 +635,6 @@ class Doc2DBEvaluator:
         
         if s1 == s2:
             return 1.0
-        
-        if self._is_chinese_entity_match(s1, s2):
-            return 0.95  # 给予高相似度但不是完全匹配
         
         def levenshtein_distance(a, b):
             if len(a) < len(b):

@@ -106,3 +106,12 @@ def test_markdown_parser_keeps_empty_cells_in_place(cascade):
 def test_numbers_compared_at_ground_truth_precision(evaluator, expected, generated, match):
     assert evaluator.compare_cell_values(expected, generated)["match"] is match
 
+
+@pytest.mark.parametrize("expected, generated", [
+    ("Smith", "Smithson"), ("John", "Johnson & Johnson"), ("Paris", "Paris, Texas"),
+    ("Main Street", "Main Street Bridge"), ("2019 Q3 report", "Q3 2019 summary"),
+    ("film originated television series - best achievement", "television"),
+])
+def test_a_value_contained_in_another_is_not_a_match(evaluator, expected, generated):
+    assert not evaluator.compare_cell_values(expected, generated)["match"]
+

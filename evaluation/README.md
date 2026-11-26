@@ -318,7 +318,7 @@ The first rule that applies decides:
 2. **Booleans.** If either value is a boolean (`true`/`false`, or the strings `true`, `false`, `yes`, `no`, `是`, `否` in any case), both are read as booleans, `1` and `0` included. They match if they are the same truth value.
 3. **Numbers.** If either value is a number, or a string that parses as one (thousands separators allowed), the prediction is rounded to as many decimals as the ground-truth value has (trailing zeros ignored), then compared. A number never matches non-numeric text.
 4. **Text.** Whitespace is collapsed. Two values match if they are equal ignoring case, or if their edit-distance similarity (1 − Levenshtein distance ÷ length of the longer value, ignoring case) is at least 0.9, or 0.85 when either contains Chinese.
-   - The original scorer's entity-abbreviation rule is still in place and also counts as a match. It applies when one value, with spaces removed and at least 4 characters long, appears inside the other (Chinese company suffixes such as `有限公司` are ignored); when both name the same year and quarter; or when they share at least half of their Chinese words of 3 or more characters. So `Smith` matches `Smithson`.
+   There is no substring, keyword or abbreviation matching: `Smith` does not match `Smithson`.
 5. **Dates.** When neither value is plain text, both are parsed as dates or datetimes and compared at the ground truth's precision: date only, minute, or second. A prediction without a time never matches a ground truth that has one. The formats read are `Y-M-D` and `Y/M/D`; `M/D/Y`, read month first; any of those followed by `HH:MM` or `HH:MM:SS` after a `T` or a space, with an optional `UTC` or `Z`; and `23 July 1992`. Values that don't parse are compared as text with `-`, `/` and spaces unified.
 
 Examples, checked against the scorer by `tests/test_readme.py`:
@@ -337,7 +337,8 @@ Examples, checked against the scorer by `tests/test_readme.py`:
 | `"2008-04-24"` | `"2008-04-25"` | no |
 | `"Ann Lee"` | `"ann lee"` | yes |
 | `"Colour"` | `"Color"` | no |
-| `"Smith"` | `"Smithson"` | yes |
+| `"Smith"` | `"Smithson"` | no |
+| `"Paris"` | `"Paris, Texas"` | no |
 | `"M"` | `"F"` | no |
 <!-- matching-examples:end -->
 
