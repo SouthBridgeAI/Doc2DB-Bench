@@ -1933,9 +1933,18 @@ Please return the Markdown table result. Remember to use ID values from referenc
             if len(lines) < 3:
                 raise ValueError(f"表格行数不足: {len(lines)}")
             
+            # 按位置拆分单元格：只去掉首尾 | 外的空片段，保留中间的空单元格
+            def split_row(line):
+                cells = [c.strip() for c in line.strip().split('|')]
+                if line.strip().startswith('|'):
+                    cells = cells[1:]
+                if line.strip().endswith('|') and cells:
+                    cells = cells[:-1]
+                return cells
+
             # 解析表头
             header_line = lines[0]
-            headers = [h.strip() for h in header_line.split('|') if h.strip()]
+            headers = split_row(header_line)
             
             # 跳过分隔符行（第二行）
             
@@ -1945,7 +1954,7 @@ Please return the Markdown table result. Remember to use ID values from referenc
                 if not line.strip() or line.startswith('---'):
                     continue
                 
-                cells = [c.strip() for c in line.split('|') if c.strip()]
+                cells = split_row(line)
                 
                 # 确保单元格数量匹配表头
                 while len(cells) < len(headers):
@@ -1954,6 +1963,8 @@ Please return the Markdown table result. Remember to use ID values from referenc
                 # 构建行字典
                 row_dict = {}
                 for i, header in enumerate(headers):
+                    if not header:
+                        continue
                     if i < len(cells):
                         cell_value = cells[i].strip()
                         # 处理null值
