@@ -295,6 +295,7 @@ class LLMExtractorEvaluator:
                 doc_files = []
                 for ext in ['*.txt', '*.pdf', '*.md', '*.docx', '*.doc']:
                     doc_files.extend(list(docs_dir.glob(ext)))
+                doc_files.sort()  # 文件系统顺序不固定；按文件名排序，保证每次运行 prompt 相同
                 print(doc_files)
                 
                 if not doc_files:
@@ -801,7 +802,7 @@ class LLMExtractorEvaluator:
             合并后的记录
         """
         merged = {}
-        all_keys = set(row1.keys()) | set(row2.keys())
+        all_keys = list(dict.fromkeys([*row1.keys(), *row2.keys()]))  # 保持列顺序（pipeline 参考表按首行列顺序进入 prompt）
         
         for key in all_keys:
             val1 = row1.get(key)
@@ -1272,14 +1273,14 @@ Please return the Markdown tables in the format specified. Remember to wrap EVER
         """
         reference_tables = {}
         
-        # 1. 扫描 attributes 提取所有的外键依赖表
-        required_tables = set()
+        # 1. 扫描 attributes 提取所有的外键依赖表（按 schema 顺序去重，保证每次运行 prompt 相同）
+        required_tables = []
         for attr in table_def.get('attributes', []):
             fk = attr.get('constraints', {}).get('foreign_key')
             if fk and isinstance(fk, dict):
                 ref_table_name = fk.get('table')
-                if ref_table_name:
-                    required_tables.add(ref_table_name)
+                if ref_table_name and ref_table_name not in required_tables:
+                    required_tables.append(ref_table_name)
         
         if not required_tables:
             return reference_tables
@@ -1316,13 +1317,13 @@ Please return the Markdown tables in the format specified. Remember to wrap EVER
         """
         reference_tables = {}
 
-        required_tables = set()
+        required_tables = []
         for attr in table_def.get('attributes', []):
             fk = attr.get('constraints', {}).get('foreign_key')
             if fk and isinstance(fk, dict):
                 ref_table_name = fk.get('table')
-                if ref_table_name:
-                    required_tables.add(ref_table_name)
+                if ref_table_name and ref_table_name not in required_tables:
+                    required_tables.append(ref_table_name)
 
         if not required_tables:
             return reference_tables
