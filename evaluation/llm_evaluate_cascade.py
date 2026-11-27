@@ -295,6 +295,7 @@ class LLMExtractorEvaluator:
                 doc_files = []
                 for ext in ['*.txt', '*.pdf', '*.md', '*.docx', '*.doc']:
                     doc_files.extend(list(docs_dir.glob(ext)))
+                doc_files.sort()  # 文件系统顺序不固定；按文件名排序，保证每次运行 prompt 相同
                 print(doc_files)
                 
                 if not doc_files:

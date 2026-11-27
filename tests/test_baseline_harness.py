@@ -18,11 +18,14 @@ table_def = {"name": "Appointment", "attributes": [
     {"name": "Physician", "constraints": {"foreign_key": {"table": "Physician", "column": "EmployeeID"}}},
 ]}
 answer = {"Patient": [{}], "Nurse": [{}], "Physician": [{}]}
-print(",".join(cx._load_reference_tables(table_def, answer)))
+merged = cx._merge_two_rows({"ID": 1, "Name": "A", "Dept": None}, {"ID": 1, "Dept": "B", "Phone": "C"})
+print(";".join([",".join(cx._load_reference_tables(table_def, answer)),
+                ",".join(cx._load_reference_tables_from_extracted(table_def, answer)),
+                ",".join(merged)]))
 """
 
 
-def test_reference_table_order_does_not_depend_on_hash_seed():          # report 046
+def test_reference_table_and_column_order_do_not_depend_on_hash_seed():          # report 046
     orders = set()
     for seed in range(6):
         env = {**os.environ, "PYTHONHASHSEED": str(seed), "OPENAI_API_KEY": "unused"}
@@ -30,4 +33,4 @@ def test_reference_table_order_does_not_depend_on_hash_seed():          # report
                            env=env, capture_output=True, text=True, timeout=120)
         assert r.returncode == 0, r.stderr
         orders.add(r.stdout.strip().splitlines()[-1])
-    assert len(orders) == 1, orders
+    assert orders == {"Patient,Nurse,Physician;Patient,Nurse,Physician;ID,Name,Dept,Phone"}, orders
