@@ -90,11 +90,24 @@ def test_whitespace_only_gt_value_counts_as_empty(evaluator):
     assert m["cell_f1"] == 100.0          # was 50.0 (report 012)
 
 
-@known("baseline: Markdown table parser drops empty cells and shifts values left")
 def test_markdown_parser_keeps_empty_cells_in_place(cascade):
     response = "<TABLE BEGIN>\n| a | b | c |\n|---|---|---|\n| 1 |  | 3 |\n<TABLE END>"
     rows = cascade.parse_llm_response(response, {"name": "T", "attributes": []})["T"]
-    assert rows == [{"a": "1", "b": None, "c": "3"}]   # today: b="3", c=None
+    assert rows == [{"a": "1", "b": None, "c": "3"}]   # was b="3", c=None (report 036)
+
+
+@pytest.mark.parametrize("row, expected", [
+    ("| 1 |  | 3 |", [{"a": "1", "b": None, "c": "3"}]),      # empty cell in the middle
+    ("|  | 2 | 3 |", [{"a": None, "b": "2", "c": "3"}]),      # at the start
+    ("| 1 | 2 |  |", [{"a": "1", "b": "2", "c": None}]),      # at the end
+    ("1 |  | 3", [{"a": "1", "b": None, "c": "3"}]),          # no outer pipes
+    ("| 1 | NULL | 3 |", [{"a": "1", "b": None, "c": "3"}]),  # spelled-out null, as before
+    ("| 1 |", [{"a": "1", "b": None, "c": None}]),            # short row padded with None
+    ("", []),                                                 # header and separator only
+])
+def test_markdown_parser_reads_cells_by_position(cascade, row, expected):
+    response = f"<TABLE BEGIN>\n| a | b | c |\n|---|---|---|\n{row}\n<TABLE END>"
+    assert cascade.parse_llm_response(response, {"name": "T", "attributes": []})["T"] == expected
 
 
 @pytest.mark.parametrize("expected, generated, match", [
